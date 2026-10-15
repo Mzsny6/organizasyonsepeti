@@ -17,7 +17,16 @@ export const smsConfigured = () =>
   (env("SMS_PROVIDER") === "netgsm" &&
     Boolean(env("NETGSM_USERCODE") && env("NETGSM_PASSWORD") && env("NETGSM_HEADER")));
 
+// Maliyet güvenliği: site genelinde günlük SMS üst sınırı (SMS_DAILY_LIMIT, varsayılan 500).
+// Sınır aşılırsa SMS gönderilmez; kötüye kullanımda kredinin bir günde tükenmesini önler.
+const dailyLimit = () => Math.max(1, Number.parseInt(env("SMS_DAILY_LIMIT"), 10) || 500);
+
 async function deliver(mobile, text) {
+  if (await isLimited("sms-global", "all", dailyLimit(), DAY)) {
+    console.error("Günlük SMS sınırına ulaşıldı (SMS_DAILY_LIMIT).");
+    throw new HttpError(503, "SMS servisi şu an yoğun. Lütfen daha sonra tekrar deneyin.");
+  }
+  await countHit("sms-global", "all", DAY);
   if (smsTestMode()) {
     console.log(`[SMS TEST] ${mobile}: ${text}`);
     return;

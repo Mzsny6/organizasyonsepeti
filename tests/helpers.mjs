@@ -8,12 +8,12 @@ import { fileURLToPath } from "node:url";
 const root = fileURLToPath(new URL("..", import.meta.url));
 export const ADMIN_PASSWORD = "test-admin-12345";
 
-export async function startServer() {
+export async function startServer(extraEnv = {}) {
   const blobsDir = await mkdtemp(join(tmpdir(), "os-test-"));
   const port = 20000 + Math.floor(Math.random() * 20000);
   const child = spawn(process.execPath, ["scripts/dev-server.mjs"], {
     cwd: root,
-    env: { ...process.env, PORT: String(port), BLOBS_DIR: blobsDir, ADMIN_PASSWORD, SMS_TEST_MODE: "1" },
+    env: { ...process.env, PORT: String(port), BLOBS_DIR: blobsDir, ADMIN_PASSWORD, SMS_TEST_MODE: "1", ...extraEnv },
     stdio: ["ignore", "pipe", "pipe"],
   });
   let log = "";

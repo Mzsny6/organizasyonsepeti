@@ -57,6 +57,7 @@ Site **Netlify** üzerinde çalışır: sayfalar ve API'ler Netlify Functions (N
 | `NETGSM_PASSWORD` | SMS için | Netgsm API şifresi                                                |
 | `NETGSM_HEADER`   | SMS için | Onaylı SMS başlığı (gönderici adı)                                |
 | `SMS_TEST_MODE`   | Hayır    | `1` → SMS gönderilmez, kod sunucu kaydına yazılır (yalnızca test) |
+| `SMS_DAILY_LIMIT` | Hayır    | Site geneli günlük en fazla SMS (varsayılan 500; kredi güvenliği) |
 
 Değişkenleri ekledikten sonra **Deploys → Trigger deploy**.
 
