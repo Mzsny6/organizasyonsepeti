@@ -1,0 +1,18 @@
+{
+  "name": "organizasyonsepeti",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "organizasyonsepeti.net web sitesi ve yönetim paneli (Netlify)",
+  "scripts": {
+    "dev": "netlify dev",
+    "dev:local": "node scripts/dev-server.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@netlify/blobs": "^11.1.4",
+    "@netlify/functions": "^6.0.2"
+  }
+}
