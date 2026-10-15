@@ -6,7 +6,8 @@
   "description": "organizasyonsepeti.net web sitesi ve yönetim paneli (Netlify)",
   "scripts": {
     "dev": "netlify dev",
-    "dev:local": "node scripts/dev-server.mjs"
+    "dev:local": "node scripts/dev-server.mjs",
+    "test": "node --test tests/*.test.mjs"
   },
   "engines": {
     "node": ">=20"

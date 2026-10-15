@@ -3,6 +3,7 @@ import { CITY_NAMES, districtsOf } from "/assets/js/locations.js";
 import {
   api,
   fill,
+  fmtDate,
   fmtDay,
   fmtPrice,
   h,
@@ -23,6 +24,9 @@ const state = {
   events: [],
   siteName: "Organizasyon Sepeti",
   returnTo: "",
+  newRequests: 0,
+  bookingDraft: null, // talepten takvime aktarılan kayıt
+  blacklistPhone: "", // talepten kara liste formuna aktarılan numara
 };
 const MAX_IMAGES = 12;
 const PRICE_NOTES = ["başlayan fiyatlarla", "paket fiyatı", "kişi başı", "saatlik", "günlük"];
@@ -56,6 +60,7 @@ async function refreshMe() {
   const me = await api("/api/account/me", { quiet401: true });
   state.user = me.user;
   state.listings = me.listings;
+  state.newRequests = me.newRequests || 0;
   if (me.pricing) state.pricing = me.pricing;
 }
 
@@ -396,13 +401,7 @@ function renderAuth(mode) {
     status,
     submit,
     mode === "login"
-      ? h(
-          "p",
-          { class: "auth-alt" },
-          "Şifrenizi mi unuttunuz? ",
-          h("a", { href: "/iletisim" }, "Bize yazın"),
-          ", hesabınızı doğrulayıp yeni şifre iletelim.",
-        )
+      ? h("p", { class: "auth-alt" }, "Şifrenizi mi unuttunuz? ", h("a", { href: "#sifre" }, "SMS ile sıfırlayın"))
       : null,
     h(
       "p",
@@ -444,10 +443,126 @@ function renderAuth(mode) {
   form.querySelector("input")?.focus();
 }
 
+// Şifremi unuttum: hesaba kayıtlı doğrulanmış telefona gelen SMS koduyla yeni şifre belirlenir.
+function renderReset() {
+  document.title = `Şifremi unuttum | ${state.siteName}`;
+  const status = statusLine();
+  const email = h("input", { name: "email", type: "email", autocomplete: "email", required: true });
+  const code = h("input", {
+    name: "code",
+    inputmode: "numeric",
+    autocomplete: "one-time-code",
+    maxlength: 6,
+    placeholder: "••••••",
+  });
+  const pw = passwordInput("password", "new-password", "En az 8 karakter");
+  const codeStep = h(
+    "div",
+    { class: "auth-step", hidden: true },
+    field("SMS ile gelen kod", code),
+    field("Yeni şifre", pw.wrap),
+  );
+  const submit = h("button", { class: "btn btn-primary btn-block", type: "submit" }, "Kod gönder");
+  const form = h(
+    "form",
+    {
+      class: "auth-form",
+      novalidate: true,
+      onsubmit: async (e) => {
+        e.preventDefault();
+        submit.disabled = true;
+        try {
+          if (codeStep.hidden) {
+            await api("/api/account/reset/start", { method: "POST", body: { email: email.value } });
+            codeStep.hidden = false;
+            email.readOnly = true;
+            submit.textContent = "Şifremi değiştir";
+            setStatus(
+              status,
+              "Bu e-postaya ait hesapta doğrulanmış bir telefon varsa SMS ile kod gönderdik. Kod birkaç dakika içinde gelmezse aşağıdaki bağlantıdan bize yazın.",
+              "success",
+            );
+            code.focus();
+          } else {
+            await api("/api/account/reset/finish", {
+              method: "POST",
+              body: { email: email.value, code: code.value, password: pw.input.value },
+              quiet401: true,
+            });
+            await refreshMe();
+            toast("Şifreniz değiştirildi, hoş geldiniz!", "success");
+            go("ilanlarim");
+          }
+        } catch (err) {
+          setStatus(status, err.message, "error");
+        } finally {
+          submit.disabled = false;
+        }
+      },
+    },
+    h("h1", {}, "Şifremi unuttum"),
+    h(
+      "p",
+      { class: "auth-sub" },
+      "Hesabınızın e-posta adresini yazın. Profilinizde doğruladığınız cep telefonuna SMS ile bir kod göndereceğiz.",
+    ),
+    field("E-posta", email),
+    codeStep,
+    status,
+    submit,
+    h(
+      "p",
+      { class: "auth-alt" },
+      "Telefonunuzu hiç doğrulamadıysanız ",
+      h("a", { href: "/iletisim" }, "bize yazın"),
+      "; kimliğinizi teyit edip yardımcı olalım.",
+    ),
+    h("p", { class: "auth-switch" }, h("a", { href: "#giris" }, "Giriş sayfasına dön")),
+  );
+  fill(app, h("section", { class: "auth is-single" }, form));
+  email.focus();
+}
+
 /* ---------- Ziyaretçi (telefon doğrulamış) hesabı ---------- */
 
 function renderClient() {
   document.title = `Hesabım | ${state.siteName}`;
+  const sent = h("div", { class: "sent-list" });
+  api("/api/account/sent-requests")
+    .then(({ requests }) =>
+      fill(
+        sent,
+        requests.length ? h("h2", {}, "Teklif talepleriniz") : null,
+        requests.map((r) =>
+          h(
+            "article",
+            { class: "sent-item" },
+            h(
+              "header",
+              {},
+              h("a", { href: r.listingPath }, r.listingTitle),
+              h(
+                "span",
+                { class: `status status-${r.seen ? "ok" : "warn"}` },
+                r.seen ? "Firma inceledi" : "Firmaya iletildi",
+              ),
+            ),
+            h(
+              "span",
+              { class: "muted" },
+              [
+                fmtDay(r.createdAt),
+                r.eventDate ? `Etkinlik: ${fmtDay(r.eventDate)}` : "",
+                r.guests ? `${r.guests} kişi` : "",
+              ]
+                .filter(Boolean)
+                .join(" · "),
+            ),
+          ),
+        ),
+      ),
+    )
+    .catch(() => {});
   fill(
     app,
     h(
@@ -455,7 +570,12 @@ function renderClient() {
       { class: "panel client-panel" },
       h("span", { class: "empty-icon is-ok" }, ic("check")),
       h("h1", {}, "Telefon numaranız doğrulandı"),
-      h("p", {}, `${state.user.phone} numarasıyla organizatörlerin iletişim bilgilerini görebilirsiniz.`),
+      h(
+        "p",
+        {},
+        `${state.user.phone} numarasıyla organizatörlerin iletişim bilgilerini görebilir ve teklif isteyebilirsiniz.`,
+      ),
+      sent,
       h(
         "div",
         { class: "panel-actions is-center" },
@@ -467,6 +587,21 @@ function renderClient() {
         ),
         h("button", { type: "button", class: "btn btn-ghost", onclick: logout }, "Çıkış"),
       ),
+      h(
+        "button",
+        {
+          type: "button",
+          class: "link-btn danger",
+          onclick: async () => {
+            if (!confirm("Doğrulanmış numaranız ve gönderdiğiniz teklif talepleri silinsin mi?")) return;
+            await api("/api/account", { method: "DELETE", body: {} });
+            state.user = null;
+            toast("Hesabınız silindi.");
+            go("giris");
+          },
+        },
+        "Hesabımı ve verilerimi sil",
+      ),
     ),
   );
 }
@@ -474,7 +609,7 @@ function renderClient() {
 /* ---------- Hesap kabuğu ---------- */
 
 function shell(page) {
-  const tab = (hash, label, icon) =>
+  const tab = (hash, label, icon, badge) =>
     h(
       "a",
       {
@@ -484,6 +619,7 @@ function shell(page) {
       },
       ic(icon),
       h("span", {}, label),
+      badge ? h("b", { class: "tab-badge", "aria-label": `${badge} yeni` }, String(badge)) : null,
     );
   const view = h("div", { class: "acc-view", id: "view" });
   const u = state.user;
@@ -512,6 +648,7 @@ function shell(page) {
           { class: "acc-tabs", "aria-label": "Hesap menüsü" },
           tab("ilanlarim", "İlanlarım", "image"),
           tab("yeni-ilan", "Yeni ilan", "plus"),
+          tab("talepler", "Talepler", "mail", state.newRequests),
           tab("takvim", "Takvim", "calendar"),
           tab("odemeler", "Ödemeler", "wallet"),
           tab("profil", "Profil", "user"),
@@ -660,7 +797,7 @@ function renderListings(view) {
           "p",
           { class: "ml-stats" },
           ic("chart"),
-          `${x.stats?.phone || 0} telefon · ${x.stats?.whatsapp || 0} WhatsApp tıklaması`,
+          `${x.stats?.phone || 0} telefon · ${x.stats?.whatsapp || 0} WhatsApp tıklaması · ${x.stats?.request || 0} teklif talebi`,
         ),
         h("div", { class: "ml-actions" }, actions),
       ),
@@ -1300,6 +1437,217 @@ async function renderOrders(view) {
   );
 }
 
+/* ---------- Teklif talepleri ---------- */
+
+const REQUEST_STATUSES = { new: "Yeni", contacted: "Görüşüldü", won: "Anlaşıldı", lost: "Olmadı" };
+const REQUEST_TONE = { new: "warn", contacted: "accent", won: "ok", lost: "muted" };
+
+async function renderRequests(view) {
+  document.title = `Talepler | ${state.siteName}`;
+  fill(view, h("h2", { class: "acc-title" }, "Teklif talepleri"), h("p", { class: "loading" }, "Yükleniyor…"));
+  let requests = (await api("/api/account/requests")).requests;
+  let filter = "all";
+  const list = h("div", { class: "rq-list" });
+  const chips = h("div", { class: "acc-counts" });
+
+  const syncBadge = () => {
+    state.newRequests = requests.filter((r) => r.status === "new").length;
+    const tab = document.querySelector('.acc-tab[href="#talepler"]');
+    tab?.querySelector(".tab-badge")?.remove();
+    if (tab && state.newRequests) tab.append(h("b", { class: "tab-badge" }, String(state.newRequests)));
+  };
+
+  const save = async (r, changes) => {
+    const { request } = await api(`/api/account/requests/${r.id}`, { method: "PUT", body: changes });
+    requests = requests.map((x) => (x.id === r.id ? request : x));
+    syncBadge();
+    render();
+  };
+  // Müşteri arandığında talep "Görüşüldü" olarak işaretlenir.
+  const contacted = (r) => r.status === "new" && save(r, { status: "contacted" }).catch(() => {});
+
+  const card = (r) => {
+    const event = state.events.find((e) => e.id === r.event);
+    const wa = `https://wa.me/${r.mobile}?text=${encodeURIComponent(
+      `Merhaba ${r.name}, ${state.siteName} üzerinden "${r.listingTitle}" için gönderdiğiniz teklif talebiyle ilgili yazıyorum.`,
+    )}`;
+    const note = h("textarea", {
+      rows: 2,
+      maxlength: 1000,
+      value: r.note || "",
+      placeholder: "Yalnızca sizin göreceğiniz not (fiyat, görüşme özeti…)",
+      onchange: () => save(r, { note: note.value }).then(() => toast("Not kaydedildi.", "success")),
+    });
+    return h(
+      "article",
+      { class: `panel rq-card${r.status === "new" ? " is-new" : ""}` },
+      h(
+        "header",
+        { class: "rq-head" },
+        h(
+          "div",
+          {},
+          h("strong", {}, r.name),
+          r.phoneVerified ? h("span", { class: "verified" }, ic("check"), "Doğrulanmış numara") : null,
+          h("small", { class: "muted" }, fmtDate(r.createdAt)),
+        ),
+        h("span", { class: `status status-${REQUEST_TONE[r.status]}` }, REQUEST_STATUSES[r.status]),
+      ),
+      h(
+        "a",
+        { class: "rq-listing", href: r.listingPath, target: "_blank" },
+        ic("image"),
+        state.listings.find((l) => l.id === r.listingId)?.title || r.listingTitle,
+      ),
+      h(
+        "ul",
+        { class: "rq-facts" },
+        h("li", {}, ic("calendar"), r.eventDate ? fmtDay(r.eventDate) : "Tarih belirtilmedi"),
+        r.guests ? h("li", {}, ic("user"), `${r.guests.toLocaleString("tr-TR")} kişi`) : null,
+        event ? h("li", {}, ic(event.icon), event.name) : null,
+      ),
+      h("p", { class: "rq-message" }, r.message),
+      h(
+        "div",
+        { class: "rq-actions" },
+        h(
+          "a",
+          { class: "btn btn-action btn-sm", href: `tel:+${r.mobile}`, onclick: () => contacted(r) },
+          ic("phone"),
+          r.phone,
+        ),
+        h(
+          "a",
+          {
+            class: "btn btn-whatsapp btn-sm",
+            href: wa,
+            target: "_blank",
+            rel: "noopener",
+            onclick: () => contacted(r),
+          },
+          ic("whatsapp"),
+          "WhatsApp",
+        ),
+        h(
+          "select",
+          {
+            class: "rq-status",
+            "aria-label": "Talep durumu",
+            onchange: (e) => save(r, { status: e.target.value }),
+          },
+          Object.entries(REQUEST_STATUSES).map(([k, v]) => h("option", { value: k, selected: k === r.status }, v)),
+        ),
+        h(
+          "button",
+          {
+            type: "button",
+            class: "btn btn-light btn-sm",
+            onclick: () => {
+              const event = state.events.find((e) => e.id === r.event);
+              state.bookingDraft = {
+                clientName: r.name,
+                clientPhone: r.phone,
+                eventDate: r.eventDate || isoDate(new Date()),
+                listingId: r.listingId,
+                status: "option",
+                note: [event?.name, r.guests ? `${r.guests} kişi` : "", r.message].filter(Boolean).join(" · "),
+              };
+              go("takvim");
+            },
+          },
+          ic("calendar"),
+          "Takvime ekle",
+        ),
+      ),
+      h("label", { class: "rq-note" }, h("span", {}, "Notunuz"), note),
+      h(
+        "div",
+        { class: "rq-foot" },
+        h(
+          "button",
+          {
+            type: "button",
+            class: "link-btn",
+            onclick: () => {
+              state.blacklistPhone = r.phone;
+              go("takvim");
+            },
+          },
+          ic("ban"),
+          "Kötü niyetli müşteri olarak bildir",
+        ),
+        h(
+          "button",
+          {
+            type: "button",
+            class: "link-btn danger",
+            onclick: async () => {
+              if (!confirm(`${r.name} adlı kişinin talebi silinsin mi?`)) return;
+              await api(`/api/account/requests/${r.id}`, { method: "DELETE" });
+              requests = requests.filter((x) => x.id !== r.id);
+              syncBadge();
+              render();
+            },
+          },
+          "Sil",
+        ),
+      ),
+    );
+  };
+
+  function render() {
+    const counts = { all: requests.length };
+    for (const r of requests) counts[r.status] = (counts[r.status] || 0) + 1;
+    fill(
+      chips,
+      [["all", "Tümü"], ...Object.entries(REQUEST_STATUSES)].map(([key, label]) =>
+        h(
+          "button",
+          {
+            type: "button",
+            class: `chip${filter === key ? " is-active" : ""}`,
+            "aria-pressed": String(filter === key),
+            onclick: () => {
+              filter = key;
+              render();
+            },
+          },
+          `${label} (${counts[key] || 0})`,
+        ),
+      ),
+    );
+    const shown = requests.filter((r) => filter === "all" || r.status === filter);
+    fill(
+      list,
+      shown.length
+        ? shown.map(card)
+        : h(
+            "div",
+            { class: "empty-state is-compact" },
+            h("span", { class: "empty-icon" }, ic("mail")),
+            h("h2", {}, requests.length ? "Bu durumda talep yok" : "Henüz teklif talebi yok"),
+            h(
+              "p",
+              {},
+              "Ziyaretçiler ilanınızdaki “Teklif İste” butonuyla tarih, kişi sayısı ve ayrıntıları gönderir; talepler burada listelenir.",
+            ),
+          ),
+    );
+  }
+
+  render();
+  fill(
+    view,
+    h("div", { class: "acc-toolbar" }, h("h2", { class: "acc-title" }, "Teklif talepleri"), chips),
+    h(
+      "p",
+      { class: "panel-lead rq-lead" },
+      "Müşteriyi aradığınızda talep “Görüşüldü” olarak işaretlenir. Anlaştığınız işi “Takvime ekle” ile randevu takviminize aktarın.",
+    ),
+    list,
+  );
+}
+
 /* ---------- Takvim (CRM) ---------- */
 
 const pad = (n) => String(n).padStart(2, "0");
@@ -1594,6 +1942,15 @@ async function renderCalendar(view) {
     h("div", { class: "panel-actions" }, h("button", { class: "btn btn-light", type: "submit" }, "Bildir")),
   );
 
+  // "Talepler"den gelen kayıt taslağı: ilgili ay açılır ve form doldurulmuş gelir.
+  const draft = state.bookingDraft;
+  state.bookingDraft = null;
+  if (draft?.eventDate) {
+    const [y, m] = draft.eventDate.split("-").map(Number);
+    month.setFullYear(y, m - 1, 1);
+    selectedDay = draft.eventDate;
+  }
+
   render();
   fill(
     view,
@@ -1617,6 +1974,13 @@ async function renderCalendar(view) {
     h("section", { class: "panel" }, upcomingEl),
     blForm,
   );
+  if (draft) bookingDialog(draft);
+  if (state.blacklistPhone) {
+    blForm.phone.value = state.blacklistPhone;
+    state.blacklistPhone = "";
+    blForm.scrollIntoView({ behavior: "smooth", block: "center" });
+    blForm.reason.focus();
+  }
 }
 
 /* ---------- Profil ---------- */
@@ -1663,7 +2027,7 @@ function verifyPanel(u) {
     h(
       "p",
       { class: "panel-lead" },
-      'Telefonunuzu SMS koduyla doğrulayın; ilanlarınızda yeşil "Onaylı hesap" rozeti görünsün.',
+      'Telefonunuzu SMS koduyla doğrulayın; ilanlarınızda yeşil "Onaylı hesap" rozeti görünsün. Şifrenizi unutursanız bu numarayla sıfırlayabilirsiniz.',
     ),
     h("div", { class: "form-grid" }, field("Cep telefonu", phone), codeField),
     vStatus,
@@ -1788,6 +2152,7 @@ function route() {
   window.scrollTo(0, 0);
   if (!state.user) {
     if (page === "yeni-ilan") state.returnTo = "yeni-ilan";
+    if (page === "sifre") return renderReset();
     return renderAuth(page === "kayit" ? "register" : "login");
   }
   if (!isOrganizer()) return page === "kayit" ? renderAuth("register") : renderClient();
@@ -1799,6 +2164,7 @@ function route() {
   if (page === "duzenle") return renderEditor(view, param);
   if (page === "odemeler") return renderOrders(view).catch(failed);
   if (page === "takvim") return renderCalendar(view).catch(failed);
+  if (page === "talepler") return renderRequests(view).catch(failed);
   if (page === "profil") return renderProfile(view);
   // Önce eldeki veriyle çiz, ardından onay/ödeme durumlarını sunucudan tazele.
   renderListings(view);

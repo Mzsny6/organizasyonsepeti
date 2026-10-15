@@ -3,7 +3,7 @@ import { icon } from "../../../public/assets/js/icons.js";
 import { dopingActive, formatPrice, listingPath } from "../listings.mjs";
 
 // CSS/JS değiştiğinde tarayıcı önbelleğini kırmak için artırın.
-export const ASSET_VERSION = "4";
+export const ASSET_VERSION = "5";
 
 const ESCAPES = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
 export const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => ESCAPES[c]);
@@ -102,6 +102,10 @@ export const priceHtml = (x) =>
 
 export const locationText = (x) => (x.district ? `${x.city} / ${x.district}` : `${x.city} (il geneli)`);
 
+// Favori butonu: durum tarayıcıda (os_fav çerezi) tutulur, site.js işaretler.
+export const favButton = (id, { label = false } = {}) =>
+  `<button type="button" class="fav-btn${label ? " has-label" : ""}" data-fav="${esc(id)}" aria-pressed="false" aria-label="Favorilere ekle">${icon("heart")}${label ? "<span>Favorilere ekle</span>" : ""}</button>`;
+
 // İlan kartı (liste, ana sayfa ve benzer ilanlar)
 export function listingCard(x, cats, { eager = false, showcase = false } = {}) {
   const cat = cats.get(x.category);
@@ -111,6 +115,7 @@ export function listingCard(x, cats, { eager = false, showcase = false } = {}) {
     ? `<img src="${esc(imageUrl(x.image, 640, 480))}" alt="${esc(x.title)}" width="640" height="480" ${eager ? 'fetchpriority="high"' : 'loading="lazy"'}>`
     : `<span class="cl-placeholder">${icon(cat?.icon || "balloon")}</span>`;
   return `<article class="card-listing${highlight ? " is-highlight" : ""}">
+    ${favButton(x.id)}
     <a class="cl-media" href="${esc(href)}" tabindex="-1" aria-hidden="true">
       ${image}
       ${showcase ? `<span class="badge badge-featured">${icon("star")}Vitrin</span>` : highlight ? `<span class="badge badge-highlight">${icon("badge")}Öne Çıkan</span>` : ""}
@@ -158,6 +163,7 @@ function siteHeader(c, { home }) {
       <a href="/#hizmetler">Hizmetler</a>
       <a href="/#nasil-calisir">Nasıl çalışır?</a>
       <a href="/iletisim">İletişim</a>
+      <a class="nav-fav" href="/favoriler" aria-label="Favorilerim">${icon("heart")}<span class="nav-fav-label">Favorilerim</span><b data-fav-count hidden></b></a>
       <a class="nav-account" href="/hesap/" data-account-link>${icon("user")}<span>Giriş yap</span></a>
       <a class="btn btn-action btn-sm nav-cta" href="/hesap/#yeni-ilan">${icon("plus")}İlan Ver</a>
     </nav>

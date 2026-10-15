@@ -25,6 +25,9 @@ const MEDIA_URL = /^\/media\/([a-z0-9]+-[a-f0-9]{10}\.(?:jpg|png|webp|gif|avif))
 
 export const listingPath = (l) => `/ilan/${l.slug}-${l.id}`;
 export const parseListingParam = (param) => /([a-f0-9]{10})$/.exec(String(param || ""))?.[1] || null;
+// Firma sayfası: /firma/<firma-adı>-<üye no>; x ilan özeti ya da { company, userId }
+export const firmPath = (x) => `/firma/${slugify(x.company, "firma")}-${x.userId}`;
+export const parseFirmParam = (param) => /-([a-f0-9]{12})$/.exec(String(param || ""))?.[1] || null;
 
 export const formatPrice = (n) => (n ? `${Number(n).toLocaleString("tr-TR")} ₺` : "");
 

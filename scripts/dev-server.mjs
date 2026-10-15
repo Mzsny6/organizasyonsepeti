@@ -3,6 +3,8 @@
 // Netlify Blobs'u .netlify/local-blobs klasöründe taklit eder.
 //
 //   ADMIN_PASSWORD=deneme123 npm run dev:local   ->  http://localhost:8888
+//
+// BLOBS_DIR ile veri klasörü değiştirilebilir (testler geçici bir klasör kullanır).
 
 import { createServer } from "node:http";
 import { mkdir, readFile, readdir, stat } from "node:fs/promises";
@@ -16,7 +18,7 @@ const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const publicDir = join(root, "public");
 const port = Number(process.env.PORT || 8888);
 
-const blobsDir = join(root, ".netlify", "local-blobs");
+const blobsDir = process.env.BLOBS_DIR ? resolve(process.env.BLOBS_DIR) : join(root, ".netlify", "local-blobs");
 await mkdir(blobsDir, { recursive: true });
 const token = "local-dev-token";
 const blobs = new BlobsServer({ directory: blobsDir, token });

@@ -18,6 +18,16 @@ import {
 } from "../lib/listings.mjs";
 import { createOrder, listOrders, quote } from "../lib/orders.mjs";
 import { priceTable } from "../lib/pricing.mjs";
+import {
+  REQUEST_ID,
+  countNewRequests,
+  deleteRequest,
+  deleteUserRequests,
+  listRequests,
+  listSentRequests,
+  updateRequest,
+} from "../lib/requests.mjs";
+import { sendOtp, smsConfigured, verifyOtp } from "../lib/sms.mjs";
 import { statsFor } from "../lib/stats.mjs";
 import {
   authenticate,
@@ -25,6 +35,7 @@ import {
   createUser,
   createUserToken,
   deleteUserRecord,
+  findUserByEmail,
   normalizeEmail,
   publicUser,
   requireOrganizer,
@@ -32,6 +43,7 @@ import {
   saveUser,
   setUserPassword,
   userCookies,
+  validatePassword,
   validateProfile,
 } from "../lib/users.mjs";
 
@@ -69,6 +81,43 @@ async function login(req, context) {
     }
     throw err;
   }
+}
+
+// Şifremi unuttum: hesaba kayıtlı ve SMS ile doğrulanmış telefona kod gönderilir.
+// Yanıt her durumda aynıdır; böylece hangi e-postanın kayıtlı olduğu anlaşılmaz.
+async function resetStart(req, context) {
+  if (!smsConfigured()) {
+    return fail(503, "SMS servisi şu an kapalı. Şifrenizi sıfırlamak için iletişim sayfasından bize yazın.");
+  }
+  const email = normalizeEmail((await readJson(req, 1024)).email);
+  if ((await isLimited("reset-ip", context.ip, 10, HOUR)) || (await isLimited("reset-email", email, 3, HOUR))) {
+    return fail(429, "Çok fazla deneme yapıldı. Lütfen bir saat sonra tekrar deneyin.");
+  }
+  await countHit("reset-ip", context.ip, HOUR);
+  await countHit("reset-email", email, HOUR);
+  const user = await findUserByEmail(email);
+  if (user && (user.role || "organizer") === "organizer" && user.verifiedPhone && user.status !== "banned") {
+    await sendOtp(user.verifiedPhone, context.ip).catch((err) => console.warn("Şifre sıfırlama SMS'i:", err.message));
+  }
+  return json({ ok: true });
+}
+
+async function resetFinish(req, context) {
+  const body = await readJson(req, 2048);
+  if (await isLimited("reset-finish", context.ip, 20, HOUR))
+    return fail(429, "Çok fazla deneme yapıldı. Lütfen daha sonra tekrar deneyin.");
+  await countHit("reset-finish", context.ip, HOUR);
+  validatePassword(body.password);
+  const email = normalizeEmail(body.email);
+  const user = await findUserByEmail(email);
+  if (!user || (user.role || "organizer") !== "organizer" || !user.verifiedPhone) {
+    return fail(400, "Kodun süresi dolmuş. Lütfen yeni kod isteyin.");
+  }
+  await verifyOtp(user.verifiedPhone, body.code);
+  if (user.status === "banned") return fail(403, "Hesabınız askıya alınmıştır. Bilgi için bizimle iletişime geçin.");
+  await setUserPassword(user, body.password);
+  await resetHits("user-login-email", email);
+  return loggedIn(req, user);
 }
 
 async function myListings(user) {
@@ -177,6 +226,8 @@ export default async (req, context) => {
 
     if (section === "register" && method === "POST") return await register(req, context);
     if (section === "login" && method === "POST") return await login(req, context);
+    if (section === "reset" && rest[0] === "start" && method === "POST") return await resetStart(req, context);
+    if (section === "reset" && rest[0] === "finish" && method === "POST") return await resetFinish(req, context);
     if (section === "logout" && method === "POST")
       return json({ ok: true }, 200, { "Set-Cookie": clearedUserCookies(req) });
 
@@ -189,8 +240,12 @@ export default async (req, context) => {
         user: publicUser(user),
         listings: organizer ? await myListings(user) : [],
         pricing: organizer ? priceTable(content) : null,
+        newRequests: organizer ? await countNewRequests(user.id) : 0,
       });
     }
+
+    // Üyenin gönderdiği teklif talepleri (ziyaretçi ya da organizatör)
+    if (section === "sent-requests" && method === "GET") return json({ requests: await listSentRequests(user.id) });
 
     if (!section && method === "DELETE") {
       const { password } = await readJson(req, 2048);
@@ -198,6 +253,7 @@ export default async (req, context) => {
         return fail(400, "Şifre hatalı.");
       await deleteUserListings(user.id);
       await deleteUserBookings(user.id);
+      await deleteUserRequests(user.id);
       await deleteUserRecord(user);
       await purgeSite();
       return json({ ok: true }, 200, { "Set-Cookie": clearedUserCookies(req) });
@@ -232,6 +288,17 @@ export default async (req, context) => {
     if (section === "orders" && method === "GET") return json({ orders: await listOrders({ userId: user.id }) });
     if (section === "listings") return await listingRoutes(req, user, content, rest);
     if (section === "bookings") return await bookingRoutes(req, user, rest);
+
+    if (section === "requests") {
+      const [id] = rest;
+      if (!id && method === "GET") return json({ requests: await listRequests(user.id) });
+      if (!REQUEST_ID.test(id || "")) return fail(404, "Talep bulunamadı.");
+      if (method === "PUT") return json({ request: await updateRequest(user.id, id, await readJson(req, 4096)) });
+      if (method === "DELETE") {
+        await deleteRequest(user.id, id);
+        return json({ ok: true });
+      }
+    }
 
     if (section === "blacklist" && method === "POST") {
       if (await isLimited("blacklist-report", user.id, 20, DAY))

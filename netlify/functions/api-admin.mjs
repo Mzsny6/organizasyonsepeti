@@ -23,6 +23,7 @@ import {
 import { ORDER_ID, cancelOrder, confirmOrder, listOrders } from "../lib/orders.mjs";
 import { DOPINGS } from "../lib/pricing.mjs";
 import { deletePromo, listPromos, savePromo } from "../lib/promos.mjs";
+import { deleteUserRequests } from "../lib/requests.mjs";
 import { smsConfigured, smsTestMode } from "../lib/sms.mjs";
 import { statsFor } from "../lib/stats.mjs";
 import { deleteUserRecord, getUser, listUsers, publicUser, saveUser, setUserPassword } from "../lib/users.mjs";
@@ -145,6 +146,7 @@ async function usersRoute(req, id, action) {
   if (!action && req.method === "DELETE") {
     await deleteUserListings(user.id);
     await deleteUserBookings(user.id);
+    await deleteUserRequests(user.id);
     await deleteUserRecord(user);
     await purgeSite();
     return json({ ok: true });

@@ -8,6 +8,7 @@
 //   GET  /api/v1/listings/:id
 //   GET  /api/v1/listings/:id/contact    ?type=phone|whatsapp      İletişim bilgisi (+ tıklama sayacı)
 //   POST /api/v1/listings/:id/report     { reason, message }       İlan şikâyeti
+//   POST /api/v1/listings/:id/request    { name, eventDate, guests, event, message, phone? }  Teklif talebi
 //   POST /api/v1/promotions/apply        { code, package, category } İndirimli fiyatı hesaplar
 //   POST /api/v1/analytics/click         { listingId, type }       İletişim butonu tıklaması
 //   GET  /api/v1/organizer/calendar      ?listing=:id              İlandaki dolu günler (ya da kendi takviminiz)
@@ -22,12 +23,15 @@ import { createReport, getListing, isLive, listingPath, readIndex, searchIndex }
 import { quote } from "../lib/orders.mjs";
 import { priceTable } from "../lib/pricing.mjs";
 import { parseSearch } from "../lib/render/search.mjs";
-import { sendOtp, smsConfigured, verifyOtp } from "../lib/sms.mjs";
-import { countClick } from "../lib/stats.mjs";
+import { createRequest } from "../lib/requests.mjs";
+import { sendNotice, sendOtp, smsConfigured, verifyOtp } from "../lib/sms.mjs";
+import { CLICK_TYPES, countClick } from "../lib/stats.mjs";
 import {
   createUserToken,
   findOrCreateClient,
   getSessionUser,
+  getUser,
+  maskPhone,
   normalizeMobile,
   publicUser,
   requireOrganizer,
@@ -94,6 +98,47 @@ async function auth(req, context, action, content) {
   return fail(404, "Bulunamadı.");
 }
 
+// Teklif talebi: iletişim bariyeri açıksa yalnızca SMS ile doğrulanmış numaralar gönderebilir.
+async function sendRequest(req, context, listing, content) {
+  const body = await readJson(req, 8192);
+  if (body.website) return json({ ok: true }, 201); // bot tuzağı
+  const sender = await getSessionUser(req);
+  if (sender && sender.id === listing.userId) return fail(400, "Kendi ilanınıza teklif talebi gönderemezsiniz.");
+  let mobile = sender?.phoneVerified ? sender.verifiedPhone : "";
+  if (!mobile) {
+    if (contactGateOn(content)) {
+      return json({ error: "Talep göndermek için telefon numaranızı doğrulayın.", needsVerification: true }, 403);
+    }
+    mobile = normalizeMobile(body.phone);
+    if (!mobile) return fail(400, "Lütfen 05xx ile başlayan cep telefonu numaranızı yazın.");
+  }
+  if (await isBlacklisted(mobile))
+    return fail(403, "Telefon numaranız kötüye kullanım bildirimleri nedeniyle engellenmiştir.");
+  if (
+    (await isLimited("request-ip", context.ip, 20, DAY)) ||
+    (await isLimited("request-phone", mobile, 10, DAY)) ||
+    (await isLimited("request-listing", `${mobile}:${listing.id}`, 1, DAY))
+  ) {
+    return fail(429, "Bu ilana bugün zaten talep gönderdiniz ya da günlük talep sınırına ulaştınız.");
+  }
+  await createRequest(listing, { sender, mobile, phoneVerified: Boolean(sender?.phoneVerified) }, body, content);
+  await Promise.all([
+    countHit("request-ip", context.ip, DAY),
+    countHit("request-phone", mobile, DAY),
+    countHit("request-listing", `${mobile}:${listing.id}`, DAY),
+    countClick(listing.id, "request"),
+  ]);
+  if (content.security.requestSms) {
+    const owner = await getUser(listing.userId);
+    const site = content.settings.siteUrl.replace(/^https?:\/\//, "").replace(/\/$/, "");
+    await sendNotice(
+      owner?.verifiedPhone,
+      `${content.settings.siteName}: "${listing.title.slice(0, 40)}" ilanınız için yeni teklif talebi var. ${site}/hesap/#talepler`,
+    );
+  }
+  return json({ ok: true, company: listing.company, phone: maskPhone(mobile) }, 201);
+}
+
 async function listingRoute(req, context, id, action, content) {
   const listing = await getListing(id);
   if (!listing || !isLive(listing)) return fail(404, "İlan bulunamadı ya da yayında değil.");
@@ -125,6 +170,8 @@ async function listingRoute(req, context, id, action, content) {
     }
     return json({ phone: listing.phone, whatsapp, instagram: listing.instagram });
   }
+
+  if (action === "request" && req.method === "POST") return await sendRequest(req, context, listing, content);
 
   if (action === "report" && req.method === "POST") {
     if (await isLimited("report", context.ip, 5, HOUR)) {
@@ -200,6 +247,7 @@ export default async (req, context) => {
 
     if (resource === "analytics" && id === "click" && req.method === "POST") {
       const { listingId, type } = await readJson(req, 512);
+      if (!CLICK_TYPES.includes(type)) return fail(400, "Geçersiz tıklama türü.");
       const listing = await getListing(listingId);
       if (!listing || !isLive(listing)) return fail(404, "İlan bulunamadı.");
       if (await isLimited("click", `${context.ip}:${listingId}:${type}`, 3, DAY)) return json({ ok: true });

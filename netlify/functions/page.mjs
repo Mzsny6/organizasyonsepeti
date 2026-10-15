@@ -1,7 +1,17 @@
 // Sitenin herkese açık sayfalarını sunucuda oluşturur.
 import { getContent, normalizeContent } from "../lib/content.mjs";
+import { readCookie } from "../lib/crypto.mjs";
 import { SECURITY_HEADERS } from "../lib/http.mjs";
-import { getListing, listingPath, parseListingParam, readIndex } from "../lib/listings.mjs";
+import {
+  LISTING_ID,
+  firmPath,
+  getListing,
+  listingPath,
+  parseFirmParam,
+  parseListingParam,
+  readIndex,
+} from "../lib/listings.mjs";
+import { renderFavorites, renderFirm } from "../lib/render/firm.mjs";
 import { renderHome } from "../lib/render/home.mjs";
 import { renderListing } from "../lib/render/listing.mjs";
 import { renderContact, renderLegal, renderNotFound } from "../lib/render/pages.mjs";
@@ -25,7 +35,7 @@ const html = (body, { status = 200, cacheable = true } = {}) =>
     status,
     headers: {
       "Content-Type": "text/html; charset=utf-8",
-      "Cache-Control": "public, max-age=0, must-revalidate",
+      "Cache-Control": cacheable ? "public, max-age=0, must-revalidate" : "private, no-store",
       // CDN'de saklanır; içerik ya da ilan değişince önbellek temizlenir (bkz. lib/cache.mjs).
       "Netlify-CDN-Cache-Control": cacheable
         ? "public, durable, s-maxage=300, stale-while-revalidate=604800"
@@ -48,6 +58,21 @@ async function listingPage(c, param) {
   return html(renderListing(c, listing, owner, index));
 }
 
+async function firmPage(c, param) {
+  const owner = await getUser(parseFirmParam(param));
+  if (!owner || (owner.role || "organizer") !== "organizer" || owner.status === "banned") {
+    return html(renderNotFound(c, "Bu firma sayfası bulunamadı."), { status: 404 });
+  }
+  const path = firmPath({ company: owner.company, userId: owner.id });
+  if (`/firma/${param}` !== path) return new Response(null, { status: 301, headers: { Location: path } });
+  return html(renderFirm(c, owner, await readIndex()));
+}
+
+// Favoriler tarayıcıdaki "os_fav" çerezinde tutulur (ör. "a1b2c3d4e5.f6a7b8c9d0"); sayfa kişiye özeldir, önbelleğe alınmaz.
+function favoriteIds(req) {
+  return [...new Set((readCookie(req, "os_fav") || "").split("."))].filter((id) => LISTING_ID.test(id)).slice(0, 100);
+}
+
 export default async (req, context) => {
   const url = new URL(req.url);
   const path = url.pathname.replace(/\/+$/, "") || "/";
@@ -63,6 +88,10 @@ export default async (req, context) => {
     if (path === "/") return html(renderHome(content, await readIndex()));
     if (path === "/ilanlar") return html(renderSearch(content, await readIndex(), url.searchParams));
     if (path.startsWith("/ilan/")) return await listingPage(content, context.params?.slug);
+    if (path.startsWith("/firma/")) return await firmPage(content, context.params?.slug);
+    if (path === "/favoriler") {
+      return html(renderFavorites(content, await readIndex(), favoriteIds(req)), { cacheable: false });
+    }
     if (path === "/kvkk") return html(renderLegal(content, "kvkk"));
     if (path === "/kullanim-kosullari") return html(renderLegal(content, "terms"));
     if (path === "/iletisim") return html(renderContact(content));
@@ -77,6 +106,6 @@ export default async (req, context) => {
 };
 
 export const config = {
-  path: ["/", "/ilanlar", "/ilan/:slug", "/kvkk", "/kullanim-kosullari", "/iletisim"],
+  path: ["/", "/ilanlar", "/ilan/:slug", "/firma/:slug", "/favoriler", "/kvkk", "/kullanim-kosullari", "/iletisim"],
   method: ["GET", "HEAD"],
 };

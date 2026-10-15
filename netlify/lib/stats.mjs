@@ -1,15 +1,17 @@
-// İlan iletişim tıklama sayaçları (PRD: phone_clicks, whatsapp_clicks).
+// İlan iletişim tıklama sayaçları (PRD: phone_clicks, whatsapp_clicks) ve teklif talebi sayısı.
 import { getStore } from "@netlify/blobs";
 
 const store = () => getStore({ name: "stats", consistency: "strong" });
 export const CLICK_TYPES = ["phone", "whatsapp"];
+const STAT_TYPES = [...CLICK_TYPES, "request"];
+const EMPTY = { phone: 0, whatsapp: 0, request: 0 };
 
 export async function countClick(listingId, type) {
-  if (!CLICK_TYPES.includes(type)) return;
+  if (!STAT_TYPES.includes(type)) return;
   const key = `l/${listingId}`;
   for (let attempt = 0; attempt < 4; attempt++) {
     const current = await store().getWithMetadata(key, { type: "json" });
-    const stats = current?.data || { phone: 0, whatsapp: 0 };
+    const stats = current?.data || { ...EMPTY };
     stats[type] = (stats[type] || 0) + 1;
     const result = current
       ? await store().setJSON(key, stats, { onlyIfMatch: current.etag })
@@ -20,7 +22,7 @@ export async function countClick(listingId, type) {
 
 export async function statsFor(ids) {
   const entries = await Promise.all(
-    ids.map(async (id) => [id, (await store().get(`l/${id}`, { type: "json" })) || { phone: 0, whatsapp: 0 }]),
+    ids.map(async (id) => [id, { ...EMPTY, ...(await store().get(`l/${id}`, { type: "json" })) }]),
   );
   return Object.fromEntries(entries);
 }

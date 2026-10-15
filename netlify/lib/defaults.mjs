@@ -11,12 +11,17 @@ const KVKK = `Bu aydınlatma metni, 6698 sayılı Kişisel Verilerin Korunması 
 
 - Üyelik bilgileri: ad soyad, firma adı, e-posta adresi, telefon numarası ve şifreniz (şifreler geri döndürülemez biçimde, şifrelenerek saklanır)
 - İlan bilgileri: ilan metni, fotoğraflar, hizmet verilen il/ilçe, fiyat bilgisi, ilanda paylaşılan telefon numarası ve Instagram hesabı
+- SMS doğrulaması: organizatörlerin iletişim bilgilerini görmek ya da teklif talebi göndermek için doğruladığınız cep telefonu numarası
+- Teklif talepleri: adınız, telefon numaranız, etkinlik tarihi, kişi sayısı ve mesajınız
+- Kara liste bildirimleri: organizatörlerin asılsız adres, kapıda iptal gibi kötü niyetli davranış nedeniyle bildirdiği telefon numaraları
 - İletişim ve şikâyet formlarında paylaştığınız bilgiler
 
 ## İşleme amaçları
 
 - Üyelik hesabınızı oluşturmak ve yönetmek
 - İlanlarınızı yayınlamak, kontrol etmek ve ziyaretçilerin size ulaşmasını sağlamak
+- Sahte aramaları ve botları engellemek, kötü niyetli kullanıcıları kara listeye almak
+- Teklif taleplerinizi seçtiğiniz organizatöre iletmek
 - Şikâyet ve iletişim taleplerini yanıtlamak, platform güvenliğini sağlamak
 - Yasal yükümlülüklerimizi yerine getirmek
 
@@ -26,11 +31,11 @@ Kişisel verileriniz web sitemizdeki formlar aracılığıyla elektronik ortamda
 
 ## Aktarım ve yayın
 
-İlanınızda yer alan bilgiler (firma adı, ilan metni, fotoğraflar, telefon numarası, Instagram hesabı) ilanınız yayında olduğu sürece site ziyaretçilerine açık olarak gösterilir. Bunun dışında kişisel verileriniz üçüncü kişilere satılmaz. Web sitemiz, sunucuları yurt dışında bulunan bir barındırma hizmet sağlayıcısında (Netlify) çalıştığından, verileriniz bu hizmet sağlayıcının sunucularında saklanır.
+İlanınızda yer alan bilgiler (firma adı, ilan metni, fotoğraflar, telefon numarası, Instagram hesabı) ilanınız yayında olduğu sürece site ziyaretçilerine açık olarak gösterilir. Teklif talebi gönderdiğinizde adınız, telefon numaranız ve talep ayrıntılarınız yalnızca talebi gönderdiğiniz organizatörle paylaşılır. Doğrulama kodları, Türkiye'de faaliyet gösteren SMS hizmet sağlayıcısı aracılığıyla gönderilir. Bunun dışında kişisel verileriniz üçüncü kişilere satılmaz. Web sitemiz, sunucuları yurt dışında bulunan bir barındırma hizmet sağlayıcısında (Netlify) çalıştığından, verileriniz bu hizmet sağlayıcının sunucularında saklanır.
 
 ## Saklama süresi
 
-Verileriniz üyeliğiniz ve ilanlarınız devam ettiği sürece ve ilgili mevzuatta öngörülen süreler boyunca saklanır; bu sürelerin sonunda silinir. Hesabınızın silinmesini istediğinizde ilanlarınız ve fotoğraflarınız da silinir.
+Verileriniz üyeliğiniz ve ilanlarınız devam ettiği sürece ve ilgili mevzuatta öngörülen süreler boyunca saklanır; bu sürelerin sonunda silinir. Teklif talepleri en fazla bir yıl saklanır ve bu sürenin sonunda otomatik olarak silinir. Hesabınızın silinmesini istediğinizde ilanlarınız, fotoğraflarınız ve teklif talepleriniz de silinir.
 
 ## Haklarınız
 
@@ -212,6 +217,8 @@ export const DEFAULT_CONTENT = {
     // SMS sağlayıcısı tanımlıyken ziyaretçiler iletişim bilgilerini görmek için telefonunu doğrular.
     contactGate: true,
     blacklistThreshold: 2,
+    // Yeni teklif talebinde organizatörün doğrulanmış telefonuna SMS gönderilir (SMS ücretlidir).
+    requestSms: false,
   },
 
   // {siteName}, {phone}, {email}, {address}, {contact} yer tutucuları sayfa çizilirken

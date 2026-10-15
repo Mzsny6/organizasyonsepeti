@@ -26,6 +26,51 @@ if (/(?:^|;\s*)os_in=1/.test(document.cookie)) {
   $$("[data-account-link] span").forEach((el) => (el.textContent = "Hesabım"));
 }
 
+/* ---------- Favoriler ----------
+   İlan numaraları "os_fav" çerezinde tutulur (en son eklenen önce); /favoriler sayfası çerezi sunucuda okur. */
+
+const FAV_COOKIE = /(?:^|;\s*)os_fav=([^;]*)/;
+const readFavs = () =>
+  (FAV_COOKIE.exec(document.cookie)?.[1] || "").split(".").filter((id) => /^[a-f0-9]{10}$/.test(id));
+function writeFavs(ids) {
+  const secure = location.protocol === "https:" ? "; Secure" : "";
+  const maxAge = ids.length ? 365 * 86400 : 0;
+  document.cookie = `os_fav=${ids.slice(0, 100).join(".")}; Path=/; Max-Age=${maxAge}; SameSite=Lax${secure}`;
+}
+function syncFavs() {
+  const favs = new Set(readFavs());
+  $$("[data-fav]").forEach((button) => {
+    const on = favs.has(button.dataset.fav);
+    button.setAttribute("aria-pressed", String(on));
+    button.setAttribute("aria-label", on ? "Favorilerden çıkar" : "Favorilere ekle");
+  });
+  $$("[data-fav-count]").forEach((el) => {
+    el.textContent = String(favs.size);
+    el.hidden = !favs.size;
+  });
+}
+document.addEventListener("click", (e) => {
+  const button = e.target.closest("[data-fav]");
+  if (!button) return;
+  e.preventDefault();
+  const id = button.dataset.fav;
+  const favs = readFavs();
+  const on = favs.includes(id);
+  writeFavs(on ? favs.filter((x) => x !== id) : [id, ...favs]);
+  syncFavs();
+  const page = $("[data-favorites-page]");
+  if (on && page) {
+    button.closest(".card-listing")?.remove();
+    if (!$(".card-listing", page)) $("[data-favorites-empty]", page).hidden = false;
+  } else if (!on) {
+    button.classList.remove("is-pop");
+    void button.offsetWidth; // animasyonu yeniden başlat
+    button.classList.add("is-pop");
+  }
+});
+syncFavs();
+window.addEventListener("pageshow", syncFavs); // geri tuşuyla dönülünce de güncel olsun
+
 /* ---------- Arama formları: il → ilçe ---------- */
 
 const citySelects = $$("[data-city-select]");
@@ -240,6 +285,78 @@ if (contactBox) {
       open((await load("whatsapp")).whatsapp);
     } catch (err) {
       showError(err);
+    }
+  });
+}
+
+/* ---------- Teklif talebi ---------- */
+
+const requestForm = $("[data-request-form]");
+const requestButton = $("[data-open-request]");
+if (requestForm && requestButton) {
+  const dialog = requestForm.closest("dialog");
+  const status = $(".form-status", requestForm);
+  const phoneField = $("[data-request-phone]", requestForm);
+  const submit = $("button[type=submit]", requestForm);
+  const remember = (key, value) => {
+    try {
+      if (value === undefined) return localStorage.getItem(key) || "";
+      localStorage.setItem(key, value);
+    } catch {
+      return "";
+    }
+  };
+  // Doğrulanmış numarası olan ziyaretçiden telefon istenmez; bariyer açıksa önce SMS doğrulaması yapılır.
+  const open = async () => {
+    requestButton.disabled = true;
+    try {
+      const auth = await fetch("/api/v1/auth/status", { credentials: "same-origin" })
+        .then((r) => r.json())
+        .catch(() => ({}));
+      let verified = Boolean(auth.verified);
+      if (!verified && auth.gate) verified = await requestVerification();
+      if (!verified && auth.gate) return;
+      phoneField.hidden = verified;
+      requestForm.phone.required = !verified;
+      const today = new Date();
+      requestForm.eventDate.min = new Date(today.getTime() - today.getTimezoneOffset() * 60000)
+        .toISOString()
+        .slice(0, 10);
+      if (!requestForm.name.value) requestForm.name.value = remember("os_name");
+      setStatus(status, "");
+      dialog.showModal();
+    } finally {
+      requestButton.disabled = false;
+    }
+  };
+  requestButton.addEventListener("click", open);
+  requestForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (requestForm.name.value.trim().length < 2) return setStatus(status, "Lütfen adınızı yazın.", "error");
+    if (requestForm.message.value.trim().length < 10)
+      return setStatus(status, "Lütfen ayrıntıları biraz daha açık yazın (en az 10 karakter).", "error");
+    submit.disabled = true;
+    try {
+      const result = await postJson(
+        `/api/v1/listings/${requestForm.dataset.listing}/request`,
+        Object.fromEntries(new FormData(requestForm)),
+      );
+      remember("os_name", requestForm.name.value.trim());
+      requestForm.reset();
+      dialog.close();
+      requestButton.disabled = true;
+      requestButton.lastChild.textContent = "Talebiniz iletildi";
+      const note = $(".form-status", contactBox || requestButton.parentElement);
+      setStatus(note, `${result.company} talebinizi aldı; sizi ${result.phone} numarasından arayacak.`, "success");
+    } catch (err) {
+      if (err.body?.needsVerification) {
+        dialog.close();
+        if (await requestVerification()) open();
+        return;
+      }
+      setStatus(status, err.message, "error");
+    } finally {
+      submit.disabled = false;
     }
   });
 }

@@ -1,0 +1,19 @@
+# Her push ve pull request'te testleri çalıştırır (yerel sunucu + geçici veri klasörü, SMS test modu).
+name: Testler
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test

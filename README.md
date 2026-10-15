@@ -9,8 +9,11 @@ Site **Netlify** üzerinde çalışır: sayfalar ve API'ler Netlify Functions (N
 **Ziyaretçi**
 
 - Hizmet türü (kademeli kategoriler), etkinlik türü, il/ilçe (81 il, 973 ilçe), bütçe ve kelimeyle arama; sıralama ve sayfalama.
-- İlan sayfası: fotoğraf galerisi, fiyat, organizatör bilgisi ("Onaylı hesap" rozeti), müsaitlik takvimi, şikâyet.
+- İlan sayfası: fotoğraf galerisi, fiyat, organizatör bilgisi ("Onaylı hesap" rozeti), müsaitlik takvimi, benzer ilanlar, şikâyet.
 - **İletişim bariyeri:** "Hemen Ara" ve WhatsApp butonları, telefon numarası SMS koduyla doğrulandıktan sonra çalışır.
+- **Teklif İste:** tarih, kişi sayısı, etkinlik türü ve ayrıntılarla organizatöre talep gönderme (SMS doğrulamalı).
+- **Firma sayfası** (`/firma/...`): organizatörün yayındaki tüm ilanları.
+- **Favoriler** (`/favoriler`): kalp simgesiyle ilan kaydetme (üyelik gerekmez, tarayıcıda saklanır).
 - Ana sayfa vitrini, renkli çerçeve/rozetli ilanlar, kategoride üst sıra (dopingler).
 
 **Organizatör (`/hesap`)**
@@ -19,15 +22,17 @@ Site **Netlify** üzerinde çalışır: sayfalar ve API'ler Netlify Functions (N
 - Hizmet kademesine göre 1/3/12 aylık ilan paketleri, **promosyon kodu** (ör. `MAYA3AY`), doping satın alma.
 - Ödemeler: kartla ödeme bağlanana kadar havale/EFT; sipariş numarası ve IBAN gösterilir.
 - **Randevu takvimi (CRM):** iş kayıtları, kapora/toplam tutar, çifte rezervasyon uyarısı, ilanda dolu günleri gösterme.
+- **Teklif talepleri:** gelen talepler, durum takibi (Yeni / Görüşüldü / Anlaşıldı / Olmadı), özel not, tek tıkla arama/WhatsApp, "Takvime ekle".
 - **Kara liste:** asılsız adres veren / kapıda iptal eden müşteriyi bildirme. Farklı organizatörlerden 2 ihbar alan numara kalıcı engellenir.
-- Telefon ve WhatsApp tıklama istatistikleri.
+- Telefon, WhatsApp ve teklif talebi istatistikleri.
+- **Şifremi unuttum:** profilde doğrulanan telefona gelen SMS koduyla yeni şifre.
 
 **Yönetim paneli (`/admin`)**
 
 - İlan onay kuyruğu (ödemesi onaylanmamış ilan yayına alınamaz), reddetme, süre ekleme, doping tanımlama.
 - Havale ödemelerini onaylama, promosyon kodları (indirim %, paket, kullanım limiti, son tarih).
 - Üyeler (engelleme, geçici şifre), kara liste, şikâyetler, iletişim mesajları.
-- Kategoriler ve kademeleri, etkinlik türleri, ana sayfa metinleri, SSS, fiyatlar, IBAN, güvenlik ayarları, SEO, KVKK ve kullanım koşulları.
+- Kategoriler ve kademeleri, etkinlik türleri, ana sayfa metinleri, SSS, fiyatlar, IBAN, güvenlik ayarları (teklif talebinde organizatöre SMS bildirimi dahil), SEO, KVKK ve kullanım koşulları.
 - "Ücretsiz mod": lansman döneminde tüm paketleri ücretsiz yapar.
 
 ## Yayına alma (Netlify)
@@ -71,20 +76,21 @@ Değişkenleri ekledikten sonra **Deploys → Trigger deploy**.
 
 ## REST API (web ve Android uygulaması için)
 
-| Uç nokta                                                                | Açıklama                                               |
-| ----------------------------------------------------------------------- | ------------------------------------------------------ |
-| `POST /api/v1/auth/send-otp` `{phone}`                                  | SMS doğrulama kodu gönderir                            |
-| `POST /api/v1/auth/verify-otp` `{phone, code}`                          | Kodu doğrular, oturum açar                             |
-| `GET /api/v1/auth/status`                                               | Doğrulama durumu ve iletişim bariyeri                  |
-| `GET /api/v1/meta`                                                      | Kategoriler, etkinlikler, iller, fiyatlar              |
-| `GET /api/v1/listings?kategori&etkinlik&il&ilce&min&max&q&sirala&sayfa` | Kategori, il, bütçe ve doping sıralamasıyla ilanlar    |
-| `GET /api/v1/listings/:id`                                              | İlan detayı (telefon hariç)                            |
-| `GET /api/v1/listings/:id/contact?type=phone\|whatsapp`                 | İletişim bilgisi + tıklama sayacı                      |
-| `POST /api/v1/listings/:id/report`                                      | İlan şikâyeti                                          |
-| `POST /api/v1/promotions/apply` `{code, package, category}`             | İndirim kodunu doğrular, fiyatı hesaplar               |
-| `POST /api/v1/analytics/click` `{listingId, type}`                      | İletişim butonu tıklaması                              |
-| `GET /api/v1/organizer/calendar?listing=:id`                            | İlandaki dolu günler (oturumla: organizatörün takvimi) |
-| `POST /api/v1/reports/blacklist` `{phone, reason, note}`                | Kötü niyetli müşteri ihbarı (organizatör)              |
+| Uç nokta                                                                 | Açıklama                                               |
+| ------------------------------------------------------------------------ | ------------------------------------------------------ |
+| `POST /api/v1/auth/send-otp` `{phone}`                                   | SMS doğrulama kodu gönderir                            |
+| `POST /api/v1/auth/verify-otp` `{phone, code}`                           | Kodu doğrular, oturum açar                             |
+| `GET /api/v1/auth/status`                                                | Doğrulama durumu ve iletişim bariyeri                  |
+| `GET /api/v1/meta`                                                       | Kategoriler, etkinlikler, iller, fiyatlar              |
+| `GET /api/v1/listings?kategori&etkinlik&il&ilce&min&max&q&sirala&sayfa`  | Kategori, il, bütçe ve doping sıralamasıyla ilanlar    |
+| `GET /api/v1/listings/:id`                                               | İlan detayı (telefon hariç)                            |
+| `GET /api/v1/listings/:id/contact?type=phone\|whatsapp`                  | İletişim bilgisi + tıklama sayacı                      |
+| `POST /api/v1/listings/:id/report`                                       | İlan şikâyeti                                          |
+| `POST /api/v1/listings/:id/request` `{name, eventDate, guests, message}` | Teklif talebi (doğrulanmış numarayla)                  |
+| `POST /api/v1/promotions/apply` `{code, package, category}`              | İndirim kodunu doğrular, fiyatı hesaplar               |
+| `POST /api/v1/analytics/click` `{listingId, type}`                       | İletişim butonu tıklaması                              |
+| `GET /api/v1/organizer/calendar?listing=:id`                             | İlandaki dolu günler (oturumla: organizatörün takvimi) |
+| `POST /api/v1/reports/blacklist` `{phone, reason, note}`                 | Kötü niyetli müşteri ihbarı (organizatör)              |
 
 Organizatör işlemleri `/api/account/*`, yönetim işlemleri `/api/admin/*` altındadır.
 
@@ -113,6 +119,14 @@ ADMIN_PASSWORD=deneme123 SMS_TEST_MODE=1 npm run dev:local   # http://localhost:
 
 `dev:local` Netlify hesabı istemez; veriler `.netlify/local-blobs` klasörüne yazılır. Test modunda SMS kodları terminale yazılır.
 
+### Testler
+
+```bash
+npm test
+```
+
+Uçtan uca testler yerel sunucuyu geçici bir veri klasörüyle başlatır ve kayıt → promosyonlu paket → onay → arama → SMS doğrulama → iletişim → teklif talebi → şifre sıfırlama → kara liste akışlarını dener. GitHub'a her gönderimde aynı testler GitHub Actions'ta çalışır.
+
 ## Proje yapısı
 
 ```
@@ -121,16 +135,17 @@ public/                      Statik dosyalar
   hesap/                     Organizatör hesabı
   assets/js/                 site.js, ui.js (ortak arayüz), icons.js, locations.js (il/ilçe)
 netlify/functions/
-  page.mjs                   Sayfalar: /, /ilanlar, /ilan/:slug, /iletisim, /kvkk, /kullanim-kosullari
+  page.mjs                   Sayfalar: /, /ilanlar, /ilan/:slug, /firma/:slug, /favoriler, /iletisim, /kvkk, /kullanim-kosullari
   api-v1.mjs                 PRD REST uç noktaları
-  api-account.mjs            Üyelik, ilanlar, siparişler, takvim, kara liste bildirimi
+  api-account.mjs            Üyelik, şifre sıfırlama, ilanlar, siparişler, teklif talepleri, takvim, kara liste
   api-admin.mjs              Moderasyon, ödemeler, promosyonlar, üyeler, kara liste, şikâyetler
   api-auth.mjs               Panel girişi
   api-content.mjs            Site içeriği ve yedekler
   api-media.mjs / media.mjs  Fotoğraf yükleme ve sunma
   api-messages.mjs           İletişim formu
-  sitemap.mjs, daily.mjs     Site haritası, günlük önbellek temizliği
-netlify/lib/                 Veri katmanı (listings, users, orders, promos, bookings, blacklist, sms, stats…)
+  sitemap.mjs, daily.mjs     Site haritası; günlük önbellek ve eski talep temizliği
+netlify/lib/                 Veri katmanı (listings, users, orders, promos, requests, bookings, blacklist, sms, stats…)
 netlify/lib/render/          Sunucu tarafı HTML şablonları
 scripts/dev-server.mjs       Netlify'sız yerel sunucu
+tests/                       Birim ve uçtan uca API testleri (npm test)
 ```

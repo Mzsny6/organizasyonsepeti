@@ -753,7 +753,7 @@ function listingRow(x, reload) {
           [
             `Eklendi ${fmtDay(x.createdAt)}`,
             x.expiresAt ? `Bitiş ${fmtDay(x.expiresAt)}` : x.credit ? `${x.credit} gün ödenmiş` : "",
-            `${x.stats?.phone || 0} telefon · ${x.stats?.whatsapp || 0} WhatsApp`,
+            `${x.stats?.phone || 0} telefon · ${x.stats?.whatsapp || 0} WhatsApp · ${x.stats?.request || 0} talep`,
           ]
             .filter(Boolean)
             .join(" · "),
@@ -1805,6 +1805,13 @@ const PAGES = {
               min: 1,
               max: 10,
               help: "Kaç farklı organizatörden ihbar alan numara engellensin (PRD: 2).",
+            },
+            {
+              key: "requestSms",
+              label: "Teklif talebi bildirimi",
+              type: "toggle",
+              toggleLabel: "Yeni teklif talebinde organizatöre SMS gönder",
+              help: "Organizatörün doğrulanmış telefonuna gider. SMS ücretlidir; numara başına günde en fazla 10 bildirim.",
             },
           ]),
         ),

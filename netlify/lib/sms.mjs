@@ -73,3 +73,15 @@ export async function verifyOtp(mobile, code) {
   }
   await store.delete(key);
 }
+
+// Bilgilendirme SMS'i (ör. organizatöre yeni teklif talebi). Gönderilemezse asıl işlem engellenmez;
+// maliyeti sınırlamak için numara başına günde en fazla 10 bildirim gönderilir.
+export async function sendNotice(mobile, text) {
+  if (!mobile || !smsConfigured() || (await isLimited("sms-notice", mobile, 10, DAY))) return;
+  try {
+    await deliver(mobile, text);
+    await countHit("sms-notice", mobile, DAY);
+  } catch (err) {
+    console.warn("Bilgilendirme SMS'i gönderilemedi:", err.message);
+  }
+}

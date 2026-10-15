@@ -1,10 +1,11 @@
 // İlan detay sayfası (/ilan/:slug-:id)
-import { REPORT_REASONS, formatPrice, listingPath, searchIndex } from "../listings.mjs";
+import { REPORT_REASONS, firmPath, formatPrice, liveListings, listingPath, searchIndex } from "../listings.mjs";
 import {
   absoluteUrl,
   categoryMap,
   esc,
   icon,
+  favButton,
   imageUrl,
   layout,
   listingCard,
@@ -72,6 +73,42 @@ function reportDialog(listing) {
   </dialog>`;
 }
 
+// Teklif talebi: ziyaretçi tarih, kişi sayısı ve ayrıntıları yazar; firma panelinden görüp geri döner.
+function requestDialog(c, listing) {
+  const own = c.events.filter((e) => (listing.events || []).includes(e.id));
+  const events = own.length ? own : c.events;
+  return `<dialog class="dialog" id="teklif">
+    <form class="dialog-form" data-request-form data-listing="${esc(listing.id)}" novalidate>
+      <header class="dialog-head">
+        <h2>Teklif isteyin</h2>
+        <button type="button" class="icon-btn" data-close-dialog aria-label="Kapat">${icon("close")}</button>
+      </header>
+      <p class="dialog-lead"><strong>${esc(listing.company)}</strong> talebinizi panelinde görür ve size telefonla dönüş yapar. Teklif istemek ücretsizdir ve sizi bağlamaz.</p>
+      <div class="form-grid request-grid">
+        <label class="field request-name"><span>Adınız soyadınız</span><input name="name" autocomplete="name" maxlength="60" required></label>
+        <label class="field" data-request-phone><span>Cep telefonunuz</span><input name="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="05xx xxx xx xx"></label>
+        <label class="field"><span>Etkinlik tarihi</span><input name="eventDate" type="date"></label>
+        <label class="field"><span>Kişi sayısı</span><input name="guests" inputmode="numeric" maxlength="6" placeholder="Örn. 150"></label>
+        ${
+          events.length
+            ? `<label class="field field-full"><span>Etkinlik türü</span><select name="event"><option value="">Seçiniz</option>${events
+                .map((e) => `<option value="${esc(e.id)}">${esc(e.name)}</option>`)
+                .join("")}</select></label>`
+            : ""
+        }
+        <label class="field field-full"><span>Ayrıntılar</span><textarea name="message" rows="4" maxlength="1000" required placeholder="Örn. Kadıköy'de akşam 19:00'da başlayacak bir kına gecesi için fiyat almak istiyorum."></textarea></label>
+      </div>
+      <label class="hp" aria-hidden="true">Web sitesi<input name="website" tabindex="-1" autocomplete="off"></label>
+      <p class="form-status" role="status" aria-live="polite"></p>
+      <div class="dialog-actions">
+        <button type="button" class="btn btn-ghost" data-close-dialog>Vazgeç</button>
+        <button type="submit" class="btn btn-primary">Talebi gönder</button>
+      </div>
+      <p class="form-note">Adınız ve telefon numaranız yalnızca bu firmayla paylaşılır. <a href="/kvkk" target="_blank">KVKK Aydınlatma Metni</a></p>
+    </form>
+  </dialog>`;
+}
+
 // İletişim bariyeri: telefon numarası SMS koduyla doğrulanınca iletişim bilgileri açılır.
 function otpDialog() {
   return `<dialog class="dialog" id="dogrulama">
@@ -105,6 +142,8 @@ export function renderListing(c, listing, owner, index) {
     ...others.filter((x) => x.category === listing.category && x.city !== listing.city),
     ...others.filter((x) => x.category !== listing.category && x.city === listing.city),
   ].slice(0, 4);
+
+  const firmCount = liveListings(index).filter((x) => x.userId === listing.userId).length;
 
   const searchLink = (extra) => `/ilanlar?${new URLSearchParams({ ...(cat ? { kategori: cat.slug } : {}), ...extra })}`;
   const crumbs = [
@@ -147,18 +186,23 @@ export function renderListing(c, listing, owner, index) {
       <aside class="listing-side">
         <div class="side-card">
           ${cat ? `<a class="pill" href="${esc(searchLink({}))}">${icon(cat.icon)}${esc(cat.name)}</a>` : ""}
-          <p class="side-price">${priceHtml(listing)}</p>
+          <div class="side-top">
+            <p class="side-price">${priceHtml(listing)}</p>
+            ${favButton(listing.id)}
+          </div>
           <div class="vendor-box">
             <span class="vendor-avatar" aria-hidden="true">${esc(listing.company.slice(0, 1).toLocaleUpperCase("tr"))}</span>
             <div>
-              <strong>${esc(listing.company)}</strong>
+              <a class="vendor-name" href="${esc(firmPath(listing))}">${esc(listing.company)}</a>
               ${owner?.phoneVerified ? `<span class="verified">${icon("check")}Onaylı hesap</span>` : ""}
               ${owner ? `<small>${monthYear(owner.createdAt)} tarihinden beri üye</small>` : ""}
+              ${firmCount > 1 ? `<a class="text-link vendor-all" href="${esc(firmPath(listing))}">Firmanın tüm ilanları (${firmCount})${icon("arrow")}</a>` : ""}
             </div>
           </div>
           <div class="contact-actions" data-contact data-listing="${esc(listing.id)}" data-wa-text="${esc(whatsappText)}">
             <button type="button" class="btn btn-action btn-block" data-reveal-phone>${icon("phone")}<span>Hemen Ara</span></button>
             ${listing.whatsapp ? `<button type="button" class="btn btn-whatsapp btn-block" data-open-whatsapp>${icon("whatsapp")}WhatsApp'tan yaz</button>` : ""}
+            <button type="button" class="btn btn-outline btn-block" data-open-request>${icon("mail")}Teklif İste</button>
             ${listing.instagram ? `<a class="btn btn-light btn-block" href="https://instagram.com/${esc(listing.instagram)}" target="_blank" rel="noopener nofollow">${icon("instagram")}@${esc(listing.instagram)}</a>` : ""}
             <p class="form-status" role="status" aria-live="polite"></p>
           </div>
@@ -188,6 +232,7 @@ export function renderListing(c, listing, owner, index) {
       : ""
   }
   ${reportDialog(listing)}
+  ${requestDialog(c, listing)}
   ${otpDialog()}`;
 
   const ld = {
