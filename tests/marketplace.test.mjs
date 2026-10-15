@@ -142,6 +142,35 @@ test("firma sayfası, site haritası ve favoriler", async () => {
   assert.equal(favorites.headers.get("cache-control"), "private, no-store");
 });
 
+test("hizmet ve il sayfaları: temiz adres, yönlendirme, site haritası", async () => {
+  const redirect = await client.get("/ilanlar?q=&kategori=fotografci&il=%C4%B0stanbul&ilce=&min=&max=");
+  assert.equal(redirect.status, 301);
+  assert.equal(redirect.headers.get("location"), "/hizmet/fotografci/istanbul");
+
+  const landing = await client.get("/hizmet/fotografci/istanbul");
+  assert.equal(landing.status, 200);
+  assert.ok(landing.data.includes(listing.id));
+  assert.match(landing.data, /<title>İstanbul Etkinlik Fotoğrafçısı İlanları ve Fiyatları/);
+  assert.match(landing.data, /rel="canonical" href="https:\/\/organizasyonsepeti\.net\/hizmet\/fotografci\/istanbul"/);
+
+  assert.ok((await client.get("/il/istanbul")).data.includes(listing.id));
+  assert.ok((await client.get("/etkinlik/kina")).data.includes(listing.id));
+  assert.equal((await client.get("/hizmet/fotografci?sayfa=1")).status, 301);
+  assert.equal((await client.get("/hizmet/olmayan-hizmet")).status, 404);
+  assert.equal((await client.get("/hizmet/fotografci/atlantis")).status, 404);
+  assert.equal(
+    (await client.get("/ilanlar?kategori=fotografci&q=d%C3%BC%C4%9F%C3%BCn")).status,
+    200,
+    "serbest aramada yönlendirme yok",
+  );
+
+  const sitemap = (await client.get("/sitemap.xml")).data;
+  for (const path of ["/hizmet/fotografci", "/hizmet/fotografci/istanbul", "/il/istanbul", "/etkinlik/kina"]) {
+    assert.ok(sitemap.includes(`https://organizasyonsepeti.net${path}</loc>`), path);
+  }
+  assert.ok(!sitemap.includes("/hizmet/palyaco<"), "ilanı olmayan hizmet site haritasında yer almaz");
+});
+
 test("iletişim bariyeri: SMS doğrulamasından sonra telefon görünür", async () => {
   const gated = await client.get(`/api/v1/listings/${listing.id}/contact?type=phone`);
   assert.equal(gated.status, 403);

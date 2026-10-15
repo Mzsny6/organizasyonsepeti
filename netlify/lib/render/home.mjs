@@ -2,6 +2,7 @@
 import { CITY_NAMES } from "../../../public/assets/js/locations.js";
 import { countBy, dopingActive, liveListings, searchIndex } from "../listings.mjs";
 import { categoryMap, esc, icon, imageUrl, layout, listingCard, paragraphs, safeUrl, sectionHead } from "./layout.mjs";
+import { searchPath } from "./urls.mjs";
 
 const BIG_CITIES = [
   "İstanbul",
@@ -157,7 +158,7 @@ function events(c, counts) {
       <div class="event-row">
         ${c.events
           .map(
-            (e) => `<a class="event-tile" href="/ilanlar?etkinlik=${esc(e.slug)}">
+            (e) => `<a class="event-tile" href="${esc(searchPath({ etkinlik: e.slug }))}">
               <span class="et-icon">${icon(e.icon)}</span>
               <span class="et-name">${esc(e.name)}</span>
               ${counts[e.id] ? `<span class="et-count">${counts[e.id]} ilan</span>` : ""}
@@ -177,7 +178,7 @@ function categories(c, counts) {
       <div class="category-grid">
         ${c.categories
           .map(
-            (cat) => `<a class="category-tile" href="/ilanlar?kategori=${esc(cat.slug)}">
+            (cat) => `<a class="category-tile" href="${esc(searchPath({ kategori: cat.slug }))}">
               <span class="ct-icon">${icon(cat.icon)}</span>
               <span class="ct-name">${esc(cat.name)}</span>
               <span class="ct-count">${counts[cat.id] ? `${counts[cat.id]} ilan` : "İlk ilanı siz verin"}</span>
@@ -244,7 +245,7 @@ function cities(c, counts) {
         ${list
           .map(
             (city) =>
-              `<a class="city-chip" href="/ilanlar?il=${encodeURIComponent(city)}">${icon("pin")}<span>${esc(city)}</span>${counts[city] ? `<em>${counts[city]}</em>` : ""}</a>`,
+              `<a class="city-chip" href="${esc(searchPath({ il: city }))}">${icon("pin")}<span>${esc(city)}</span>${counts[city] ? `<em>${counts[city]}</em>` : ""}</a>`,
           )
           .join("")}
       </div>

@@ -1,6 +1,7 @@
 // Tüm sayfaların ortak parçaları: <head>, üst menü, alt bilgi ve yardımcılar.
 import { icon } from "../../../public/assets/js/icons.js";
 import { dopingActive, formatPrice, listingPath } from "../listings.mjs";
+import { searchPath } from "./urls.mjs";
 
 // CSS/JS değiştiğinde tarayıcı önbelleğini kırmak için artırın.
 export const ASSET_VERSION = "5";
@@ -186,7 +187,7 @@ function siteFooter(c) {
         <h4>Hizmetler</h4>
         ${c.categories
           .slice(0, 7)
-          .map((cat) => `<a href="/ilanlar?kategori=${esc(cat.slug)}">${esc(cat.name)}</a>`)
+          .map((cat) => `<a href="${esc(searchPath({ kategori: cat.slug }))}">${esc(cat.name)}</a>`)
           .join("")}
       </nav>
       <nav class="footer-col" aria-label="Site">

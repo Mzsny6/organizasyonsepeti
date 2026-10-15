@@ -14,6 +14,7 @@ import {
   paragraphs,
   priceHtml,
 } from "./layout.mjs";
+import { searchPath } from "./urls.mjs";
 
 const monthYear = (iso) => new Date(iso).toLocaleDateString("tr-TR", { month: "long", year: "numeric" });
 const fullDate = (iso) => new Date(iso).toLocaleDateString("tr-TR", { day: "numeric", month: "long", year: "numeric" });
@@ -145,7 +146,7 @@ export function renderListing(c, listing, owner, index) {
 
   const firmCount = liveListings(index).filter((x) => x.userId === listing.userId).length;
 
-  const searchLink = (extra) => `/ilanlar?${new URLSearchParams({ ...(cat ? { kategori: cat.slug } : {}), ...extra })}`;
+  const searchLink = (extra) => searchPath({ kategori: cat?.slug, ...extra });
   const crumbs = [
     ["Ana sayfa", "/"],
     ["İlanlar", "/ilanlar"],
@@ -166,7 +167,8 @@ export function renderListing(c, listing, owner, index) {
             eventList.length
               ? `<div class="event-chips"><h3>Hizmet verdiği etkinlikler</h3>${eventList
                   .map(
-                    (e) => `<a class="pill" href="/ilanlar?etkinlik=${esc(e.slug)}">${icon(e.icon)}${esc(e.name)}</a>`,
+                    (e) =>
+                      `<a class="pill" href="${esc(searchPath({ etkinlik: e.slug }))}">${icon(e.icon)}${esc(e.name)}</a>`,
                   )
                   .join("")}</div>`
               : ""

@@ -15,7 +15,8 @@ import { renderFavorites, renderFirm } from "../lib/render/firm.mjs";
 import { renderHome } from "../lib/render/home.mjs";
 import { renderListing } from "../lib/render/listing.mjs";
 import { renderContact, renderLegal, renderNotFound } from "../lib/render/pages.mjs";
-import { renderSearch } from "../lib/render/search.mjs";
+import { parseSearch, renderSearch } from "../lib/render/search.mjs";
+import { cityFromSlug, isLandingPath, searchPath } from "../lib/render/urls.mjs";
 import { getUser } from "../lib/users.mjs";
 
 const CSP = [
@@ -58,6 +59,37 @@ async function listingPage(c, param) {
   return html(renderListing(c, listing, owner, index));
 }
 
+// /ilanlar ve temiz adresli arama sayfaları (/hizmet/:kategori[/:il], /il/:il, /etkinlik/:etkinlik).
+// Aynı arama tek adreste dizinlensin diye eşdeğer adresler temiz adrese kalıcı yönlendirilir.
+async function searchPage(c, url, path) {
+  const params = new URLSearchParams(url.searchParams);
+  const [kind, first, second] = path.split("/").filter(Boolean);
+  if (kind !== "ilanlar") {
+    const notFound = () => html(renderNotFound(c, "Aradığınız sayfa bulunamadı."), { status: 404 });
+    if (kind === "hizmet") {
+      if (!c.categories.some((cat) => cat.slug === first)) return notFound();
+      params.set("kategori", first);
+      if (second) {
+        if (!cityFromSlug(second)) return notFound();
+        params.set("il", cityFromSlug(second));
+      }
+    }
+    if (kind === "il") {
+      if (!cityFromSlug(first)) return notFound();
+      params.set("il", cityFromSlug(first));
+    }
+    if (kind === "etkinlik") {
+      if (!c.events.some((e) => e.slug === first)) return notFound();
+      params.set("etkinlik", first);
+    }
+  }
+  const target = searchPath(parseSearch(c, params));
+  if (isLandingPath(target) && target !== `${path}${url.search}`) {
+    return new Response(null, { status: 301, headers: { Location: target } });
+  }
+  return html(renderSearch(c, await readIndex(), params));
+}
+
 async function firmPage(c, param) {
   const owner = await getUser(parseFirmParam(param));
   if (!owner || (owner.role || "organizer") !== "organizer" || owner.status === "banned") {
@@ -86,7 +118,7 @@ export default async (req, context) => {
 
   try {
     if (path === "/") return html(renderHome(content, await readIndex()));
-    if (path === "/ilanlar") return html(renderSearch(content, await readIndex(), url.searchParams));
+    if (path === "/ilanlar" || /^\/(hizmet|il|etkinlik)\//.test(path)) return await searchPage(content, url, path);
     if (path.startsWith("/ilan/")) return await listingPage(content, context.params?.slug);
     if (path.startsWith("/firma/")) return await firmPage(content, context.params?.slug);
     if (path === "/favoriler") {
@@ -106,6 +138,19 @@ export default async (req, context) => {
 };
 
 export const config = {
-  path: ["/", "/ilanlar", "/ilan/:slug", "/firma/:slug", "/favoriler", "/kvkk", "/kullanim-kosullari", "/iletisim"],
+  path: [
+    "/",
+    "/ilanlar",
+    "/hizmet/:kategori",
+    "/hizmet/:kategori/:il",
+    "/il/:il",
+    "/etkinlik/:etkinlik",
+    "/ilan/:slug",
+    "/firma/:slug",
+    "/favoriler",
+    "/kvkk",
+    "/kullanim-kosullari",
+    "/iletisim",
+  ],
   method: ["GET", "HEAD"],
 };

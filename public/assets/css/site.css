@@ -1283,6 +1283,25 @@ textarea {
 .city-chip:hover {
   border-color: var(--ink);
 }
+.related-links {
+  padding-block: clamp(44px, 6vw, 64px);
+}
+.related-links .container {
+  display: grid;
+  gap: 30px;
+}
+.related-group h2 {
+  margin-bottom: 14px;
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+.related-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
 .city-all {
   margin-top: 22px;
   color: var(--muted);

@@ -4,6 +4,7 @@ import { test } from "node:test";
 import { normalizeContent } from "../netlify/lib/content.mjs";
 import { firmPath, isLive, parseFirmParam, parseListingParam, searchIndex } from "../netlify/lib/listings.mjs";
 import { applyDiscount, packagePrice } from "../netlify/lib/pricing.mjs";
+import { cityFromSlug, citySlug, searchPath } from "../netlify/lib/render/urls.mjs";
 import { validateRequest } from "../netlify/lib/requests.mjs";
 import { foldText, slugify } from "../netlify/lib/text.mjs";
 import { formatPhone, maskPhone, normalizeMobile, validateTcVkn } from "../netlify/lib/users.mjs";
@@ -108,4 +109,20 @@ test("teklif talebi doğrulaması", () => {
   assert.throws(() => validateRequest({ name: "Ali", message: "kısa" }, content));
   assert.throws(() => validateRequest({ name: "Ali", eventDate: "2001-01-01", message: "Yeterince uzun." }, content));
   assert.throws(() => validateRequest({ name: "Ali", eventDate: "31-12-2099", message: "Yeterince uzun." }, content));
+});
+
+test("arama adresleri: temiz adresler ve /ilanlar", () => {
+  assert.equal(searchPath({ kategori: "dugun-salonu" }), "/hizmet/dugun-salonu");
+  assert.equal(searchPath({ kategori: "dugun-salonu", il: "İstanbul" }), "/hizmet/dugun-salonu/istanbul");
+  assert.equal(searchPath({ il: "Şanlıurfa" }), "/il/sanliurfa");
+  assert.equal(searchPath({ etkinlik: "kina", sayfa: 2 }), "/etkinlik/kina?sayfa=2");
+  assert.equal(searchPath({ kategori: "palyaco", sirala: "onerilen", sayfa: 1 }), "/hizmet/palyaco");
+  assert.equal(searchPath({ kategori: "palyaco", sirala: "yeni" }), "/ilanlar?kategori=palyaco&sirala=yeni");
+  assert.equal(
+    searchPath({ kategori: "palyaco", il: "İzmir", ilce: "Bornova" }),
+    "/ilanlar?kategori=palyaco&il=%C4%B0zmir&ilce=Bornova",
+  );
+  assert.equal(searchPath({}), "/ilanlar");
+  assert.equal(cityFromSlug(citySlug("Çanakkale")), "Çanakkale");
+  assert.equal(cityFromSlug("atlantis"), "");
 });

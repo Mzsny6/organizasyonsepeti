@@ -1,6 +1,7 @@
 // Firma sayfası (/firma/:slug-:id) ve favoriler (/favoriler)
 import { firmPath, liveListings } from "../listings.mjs";
 import { absoluteUrl, categoryMap, esc, icon, layout, listingCard, pageHero } from "./layout.mjs";
+import { searchPath } from "./urls.mjs";
 
 const monthYear = (iso) => new Date(iso).toLocaleDateString("tr-TR", { month: "long", year: "numeric" });
 
@@ -38,7 +39,7 @@ export function renderFirm(c, owner, index) {
           ? `<div class="firm-cats">${categories
               .map(
                 (cat) =>
-                  `<a class="pill" href="/ilanlar?kategori=${esc(cat.slug)}">${icon(cat.icon)}${esc(cat.name)}</a>`,
+                  `<a class="pill" href="${esc(searchPath({ kategori: cat.slug }))}">${icon(cat.icon)}${esc(cat.name)}</a>`,
               )
               .join("")}</div>`
           : ""
