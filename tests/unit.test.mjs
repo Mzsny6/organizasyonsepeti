@@ -139,3 +139,28 @@ test("değerlendirme doğrulaması ve görünen ad", () => {
   assert.throws(() => validateReview({ rating: 6, name: "Ali", comment: "Yeterince uzun bir yorum metni." }));
   assert.throws(() => validateReview({ rating: 3, name: "Ali", comment: "kısa" }));
 });
+
+test("ziyaret istatistiği sınıflandırması", async () => {
+  const { browserOf, cityOf, deviceOf, normalizePath, sourceOf } = await import("../netlify/lib/analytics.mjs");
+  assert.equal(sourceOf("https://www.google.com.tr/", "", "organizasyonsepeti.net"), "Google");
+  assert.equal(sourceOf("https://l.instagram.com/?u=x", "", "organizasyonsepeti.net"), "Instagram");
+  assert.equal(sourceOf("https://organizasyonsepeti.net/ilanlar", "", "organizasyonsepeti.net"), null);
+  assert.equal(sourceOf("", "", "organizasyonsepeti.net"), "Doğrudan");
+  assert.equal(sourceOf("", "WhatsApp", "x"), "WhatsApp");
+  assert.equal(sourceOf("", "uygulama", "x"), "Android / uygulama");
+  assert.equal(sourceOf("https://blog.ornek.com/yazi", "", "x"), "blog.ornek.com");
+  assert.equal(deviceOf("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) Mobile/15E148"), "Mobil");
+  assert.equal(deviceOf("Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X)"), "Tablet");
+  assert.equal(deviceOf("Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) Safari/605.1.15"), "Masaüstü");
+  assert.equal(browserOf("Mozilla/5.0 (Linux; Android 14) SamsungBrowser/25.0 Chrome/121 Mobile"), "Samsung Internet");
+  assert.equal(browserOf("Mozilla/5.0 (iPhone) Instagram 300.0"), "Instagram uygulaması");
+  assert.equal(browserOf("Mozilla/5.0 (iPhone) Version/17.0 Mobile/15E148 Safari/604.1"), "Safari");
+  assert.equal(cityOf({ country: { code: "TR" }, subdivision: { name: "İzmir" } }), "İzmir");
+  assert.equal(cityOf({ country: { code: "DE" } }), "Yurt dışı (DE)");
+  assert.equal(cityOf(undefined), "Bilinmiyor");
+  assert.equal(normalizePath("/ilanlar?q=kına"), "/ilanlar");
+  assert.equal(normalizePath("/hizmet/palyaco/"), "/hizmet/palyaco");
+  assert.equal(normalizePath("/admin/"), "");
+  assert.equal(normalizePath("https://kotu.site/"), "");
+  assert.equal(normalizePath('/"><script>'), "");
+});

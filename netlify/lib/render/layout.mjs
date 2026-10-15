@@ -4,7 +4,7 @@ import { dopingActive, formatPrice, listingPath } from "../listings.mjs";
 import { searchPath } from "./urls.mjs";
 
 // CSS/JS değiştiğinde tarayıcı önbelleğini kırmak için artırın.
-export const ASSET_VERSION = "6";
+export const ASSET_VERSION = "7";
 
 const ESCAPES = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
 export const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => ESCAPES[c]);

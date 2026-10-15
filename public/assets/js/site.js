@@ -7,6 +7,28 @@ if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => navigator.serviceWorker.register("/sw.js").catch(() => {}));
 }
 
+/* ---------- Ziyaret istatistiği (çerezsiz; yönetici kendi cihazında kapatabilir) ---------- */
+
+(() => {
+  try {
+    if (localStorage.getItem("os_notrack") === "1") return;
+  } catch {
+    // depolama kapalıysa yine say
+  }
+  const params = new URLSearchParams(location.search);
+  fetch("/api/v1/analytics/pageview", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      path: location.pathname,
+      ref: document.referrer,
+      utm: params.get("utm_source") || params.get("kaynak") || "",
+      q: location.pathname === "/ilanlar" ? params.get("q") || "" : "",
+    }),
+    keepalive: true,
+  }).catch(() => {});
+})();
+
 /* ---------- Üst menü ---------- */
 
 const header = $(".site-header");

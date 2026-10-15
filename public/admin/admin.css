@@ -1615,3 +1615,283 @@ img {
   margin-top: 2px;
   color: var(--muted);
 }
+
+/* ---------- Ziyaret istatistikleri ---------- */
+
+.analytics-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.notrack {
+  color: var(--ink-soft);
+  font-size: 14px;
+}
+.analytics-body {
+  display: grid;
+  gap: 18px;
+  transition: opacity 0.2s;
+}
+.analytics-body.is-loading {
+  opacity: 0.55;
+}
+.kpi-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+.kpi-row.is-compact {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+@media (max-width: 900px) {
+  .kpi-row,
+  .kpi-row.is-compact {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.kpi {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  padding: 18px 20px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.kpi-row:not(.is-compact) .kpi {
+  box-shadow: var(--shadow);
+}
+.kpi-label {
+  color: var(--ink-soft);
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.kpi strong {
+  color: var(--ink);
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+.kpi-delta {
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.kpi-delta.is-up {
+  color: #127a5a;
+}
+.kpi-delta.is-down {
+  color: #b42318;
+}
+.viz {
+  position: relative;
+  width: 100%;
+  min-height: 200px;
+}
+.viz-svg {
+  display: block;
+  overflow: visible;
+}
+.viz-grid {
+  stroke: #eceef2;
+  stroke-width: 1;
+}
+.viz-tick {
+  fill: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.viz-end {
+  fill: var(--ink);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+.viz-line {
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.viz-line.s-views,
+.viz-dot.s-views,
+.key-line.s-views {
+  stroke: #6c5ce7;
+  fill: #6c5ce7;
+  background: #6c5ce7;
+}
+.viz-line.s-visitors,
+.viz-dot.s-visitors,
+.key-line.s-visitors {
+  stroke: #e0605e;
+  fill: #e0605e;
+  background: #e0605e;
+}
+.viz-line.s-views,
+.viz-line.s-visitors {
+  fill: none;
+}
+.viz-line.is-partial {
+  stroke-dasharray: 4 4;
+}
+.key-line.is-partial {
+  width: 18px;
+  background: repeating-linear-gradient(90deg, var(--muted) 0 4px, transparent 4px 7px);
+}
+.viz-legend-note {
+  color: var(--muted);
+  font-weight: 500;
+}
+.viz-dot {
+  stroke: var(--surface) !important;
+  stroke-width: 2;
+}
+.viz-cross {
+  stroke: var(--ink-soft);
+  stroke-width: 1;
+}
+.viz-bar {
+  fill: #6c5ce7;
+}
+.viz-col:hover .viz-bar,
+.viz-col:focus .viz-bar {
+  fill: #5a4bd6;
+}
+.viz-col:focus,
+.viz-svg rect:focus {
+  outline: none;
+}
+.viz-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin-bottom: 10px;
+  color: var(--ink-soft);
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.viz-legend span,
+.viz-tip span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.key-line {
+  display: inline-block;
+  width: 16px;
+  height: 2px;
+  border-radius: 2px;
+}
+.viz-tip {
+  position: absolute;
+  z-index: 2;
+  display: grid;
+  gap: 4px;
+  min-width: 170px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  color: var(--ink-soft);
+  font-size: 13px;
+  pointer-events: none;
+}
+.viz-tip[hidden] {
+  display: none;
+}
+.viz-tip-title {
+  color: var(--ink);
+  font-size: 13px;
+}
+.viz-tip b {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.viz-table {
+  margin-top: 12px;
+  font-size: 14px;
+}
+.viz-table summary {
+  color: var(--accent);
+  font-weight: 600;
+  cursor: pointer;
+}
+.viz-table table {
+  margin-top: 10px;
+}
+.viz-table .num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.analytics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .analytics-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.rank-list {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.rank-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 5px 12px;
+  font-size: 14px;
+}
+.rank-label {
+  display: grid;
+  min-width: 0;
+  color: var(--ink);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.rank-label small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+.rank-value {
+  color: var(--ink);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.rank-value small {
+  color: var(--muted);
+  font-weight: 500;
+}
+.rank-track {
+  grid-column: 1 / -1;
+  height: 8px;
+  border-radius: 0 4px 4px 0;
+  background: #f1f0fd;
+}
+.rank-track i {
+  display: block;
+  height: 100%;
+  min-width: 2px;
+  border-radius: 0 4px 4px 0;
+  background: #6c5ce7;
+}
+.sub-head {
+  margin: 20px 0 12px;
+  font-size: 15px;
+  font-weight: 700;
+}
+.analytics-note {
+  color: var(--muted);
+  font-size: 13px;
+}

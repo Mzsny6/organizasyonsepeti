@@ -15,6 +15,7 @@ const KVKK = `Bu aydınlatma metni, 6698 sayılı Kişisel Verilerin Korunması 
 - Teklif talepleri: adınız, telefon numaranız, etkinlik tarihi, kişi sayısı ve mesajınız
 - Değerlendirmeler: verdiğiniz puan, yorumunuz ve adınız (firma sayfasında yalnızca adınız ve soyadınızın baş harfi gösterilir)
 - Kara liste bildirimleri: organizatörlerin asılsız adres, kapıda iptal gibi kötü niyetli davranış nedeniyle bildirdiği telefon numaraları
+- Site kullanım istatistikleri: ziyaret edilen sayfalar, siteye gelinen kaynak (ör. arama motoru), cihaz ve tarayıcı türü ile yaklaşık il bilgisi. Bu istatistikler için çerez kullanılmaz ve IP adresiniz kaydedilmez; ziyaretler her gün değişen, geri çözülemeyen anonim bir kimlikle sayılır
 - İletişim ve şikâyet formlarında paylaştığınız bilgiler
 
 ## İşleme amaçları
@@ -22,6 +23,7 @@ const KVKK = `Bu aydınlatma metni, 6698 sayılı Kişisel Verilerin Korunması 
 - Üyelik hesabınızı oluşturmak ve yönetmek
 - İlanlarınızı yayınlamak, kontrol etmek ve ziyaretçilerin size ulaşmasını sağlamak
 - Sahte aramaları ve botları engellemek, kötü niyetli kullanıcıları kara listeye almak
+- Sitenin nasıl kullanıldığını anlamak ve hizmetimizi geliştirmek (anonim istatistikler)
 - Teklif taleplerinizi seçtiğiniz organizatöre iletmek
 - Şikâyet ve iletişim taleplerini yanıtlamak, platform güvenliğini sağlamak
 - Yasal yükümlülüklerimizi yerine getirmek

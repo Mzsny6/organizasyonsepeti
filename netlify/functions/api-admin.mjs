@@ -1,10 +1,11 @@
 // Yönetim paneli: ilan moderasyonu, ödemeler, promosyon kodları, üyeler, kara liste ve şikâyetler.
 import { randomInt } from "node:crypto";
+import { analyticsReport } from "../lib/analytics.mjs";
 import { requireAdmin } from "../lib/auth.mjs";
 import { deleteBlacklistRecord, listBlacklist, setBlocked } from "../lib/blacklist.mjs";
 import { deleteUserBookings } from "../lib/bookings.mjs";
 import { purgeSite } from "../lib/cache.mjs";
-import { messageStore } from "../lib/content.mjs";
+import { getContent, messageStore } from "../lib/content.mjs";
 import { fail, handleError, json, readJson } from "../lib/http.mjs";
 import {
   addDoping,
@@ -17,6 +18,7 @@ import {
   hideUserListings,
   listReports,
   moderateListing,
+  parseListingParam,
   readIndex,
   updateReport,
 } from "../lib/listings.mjs";
@@ -24,6 +26,7 @@ import { ORDER_ID, cancelOrder, confirmOrder, listOrders } from "../lib/orders.m
 import { DOPINGS } from "../lib/pricing.mjs";
 import { deletePromo, listPromos, savePromo } from "../lib/promos.mjs";
 import { deleteUserRequests } from "../lib/requests.mjs";
+import { cityFromSlug } from "../lib/render/urls.mjs";
 import { REVIEW_ID, allReviews, deleteReview, deleteUserReviews, moderateReview } from "../lib/reviews.mjs";
 import { smsConfigured, smsTestMode } from "../lib/sms.mjs";
 import { statsFor } from "../lib/stats.mjs";
@@ -38,7 +41,7 @@ function temporaryPassword() {
 }
 
 async function summary() {
-  const [index, users, reports, messages, orders, blacklist, reviews] = await Promise.all([
+  const [index, users, reports, messages, orders, blacklist, reviews, today] = await Promise.all([
     readIndex(),
     listUsers(),
     listReports(),
@@ -46,6 +49,7 @@ async function summary() {
     listOrders(),
     listBlacklist(),
     allReviews(),
+    analyticsReport(1),
   ]);
   const unread = await Promise.all(messages.blobs.slice(-200).map((b) => messageStore().get(b.key, { type: "json" })));
   const now = new Date().toISOString();
@@ -64,6 +68,7 @@ async function summary() {
     revenue: orders.filter((o) => o.status === "paid").reduce((sum, o) => sum + o.amount, 0),
     blocked: blacklist.filter((b) => b.blocked).length,
     pendingReviews: reviews.filter((r) => r.status === "pending").length,
+    today: today.totals,
     sms: { configured: smsConfigured(), testMode: smsTestMode() },
   });
 }
@@ -208,6 +213,36 @@ async function reportsRoute(req, id) {
   return fail(404, "Bulunamadı.");
 }
 
+// İstatistiklerdeki sayfa adresine okunur bir ad verir.
+const FIXED_PAGES = {
+  "/": "Ana sayfa",
+  "/ilanlar": "İlan arama",
+  "/favoriler": "Favorilerim",
+  "/iletisim": "İletişim",
+  "/kvkk": "KVKK aydınlatma metni",
+  "/kullanim-kosullari": "Kullanım koşulları",
+};
+function pageTitle(path, content, index) {
+  if (FIXED_PAGES[path]) return FIXED_PAGES[path];
+  const [kind, first, second] = path.split("/").filter(Boolean);
+  if (kind === "ilan") {
+    const id = parseListingParam(first);
+    return index.find((x) => x.id === id)?.title || "İlan (yayından kalkmış)";
+  }
+  if (kind === "firma") {
+    const id = /([a-f0-9]{12})$/.exec(first || "")?.[1];
+    const company = index.find((x) => x.userId === id)?.company;
+    return company ? `${company} (firma sayfası)` : "Firma sayfası";
+  }
+  if (kind === "hizmet") {
+    const cat = content.categories.find((c) => c.slug === first)?.name || first;
+    return [cityFromSlug(second), cat].filter(Boolean).join(" · ");
+  }
+  if (kind === "il") return `${cityFromSlug(first) || first} ilanları`;
+  if (kind === "etkinlik") return content.events.find((e) => e.slug === first)?.name || first;
+  return path;
+}
+
 // Değerlendirmeler: /api/admin/reviews[/<organizatör>/<değerlendirme>]
 async function reviewsRoute(req, organizerId, id) {
   if (!organizerId && req.method === "GET") return json({ reviews: await allReviews() });
@@ -231,6 +266,13 @@ export default async (req) => {
     await requireAdmin(req);
     const [resource, id, action] = new URL(req.url).pathname.replace(/^\/api\/admin\/?/, "").split("/");
     if (resource === "summary" && req.method === "GET") return await summary();
+    if (resource === "analytics" && req.method === "GET") {
+      const requested = Number(new URL(req.url).searchParams.get("days"));
+      const days = [1, 7, 30, 90].includes(requested) ? requested : 7;
+      const [report, content, index] = await Promise.all([analyticsReport(days), getContent(), readIndex()]);
+      report.pages = report.pages.map((p) => ({ ...p, title: pageTitle(p.key, content, index) }));
+      return json(report);
+    }
     if (resource === "listings") return await listingsRoute(req, id, action);
     if (resource === "users") return await usersRoute(req, id, action);
     if (resource === "orders") return await ordersRoute(req, id, action);

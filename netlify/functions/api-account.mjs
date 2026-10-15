@@ -1,4 +1,5 @@
 // Üye hesabı: kayıt, giriş, profil; organizatörler için ilanlar, paketler, dopingler, takvim ve kara liste.
+import { recordEvent } from "../lib/analytics.mjs";
 import { reportPhone } from "../lib/blacklist.mjs";
 import { BOOKING_ID, deleteBooking, deleteUserBookings, listBookings, saveBooking } from "../lib/bookings.mjs";
 import { purgeSite } from "../lib/cache.mjs";
@@ -58,7 +59,7 @@ async function register(req, context) {
   const body = await readJson(req, 4096);
   if (body.website) return fail(400, "Kayıt tamamlanamadı."); // bot tuzağı
   const user = await createUser(body);
-  await countHit("register", context.ip, HOUR);
+  await Promise.all([countHit("register", context.ip, HOUR), recordEvent("signup")]);
   return loggedIn(req, user, 201);
 }
 
@@ -153,7 +154,7 @@ async function listingRoutes(req, user, content, rest) {
       userId: user.id,
     });
     const listing = await createListing(user, body, content);
-    await countHit("listing-create", user.id, DAY);
+    await Promise.all([countHit("listing-create", user.id, DAY), recordEvent("listing")]);
     const order = await createOrder(content, user, listing, {
       type: "package",
       item: body.package,

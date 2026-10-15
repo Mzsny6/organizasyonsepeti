@@ -32,6 +32,8 @@ Site **Netlify** üzerinde çalışır: sayfalar ve API'ler Netlify Functions (N
 
 **Yönetim paneli (`/admin`)**
 
+- **Ziyaret istatistikleri:** tekil ziyaretçi, sayfa görüntüleme, günlük grafik, saat dağılımı, en çok bakılan sayfalar, trafik kaynakları (Google, Instagram, WhatsApp…), şehirler, cihaz/tarayıcı, sitede aranan kelimeler ve ziyaretçilerin firmalara ulaşma sayıları (telefon, WhatsApp, teklif talebi). Çerez kullanılmaz, IP saklanmaz; yönetici kendi cihazındaki ziyaretleri saydırmayabilir. Paylaşılan bağlantılara `?utm_source=instagram` gibi bir ek konursa kaynak ayrı görünür.
+
 - İlan onay kuyruğu (ödemesi onaylanmamış ilan yayına alınamaz), reddetme, süre ekleme, doping tanımlama.
 - Havale ödemelerini onaylama, promosyon kodları (indirim %, paket, kullanım limiti, son tarih).
 - Üyeler (engelleme, geçici şifre), kara liste, şikâyetler, değerlendirme onayı, iletişim mesajları.

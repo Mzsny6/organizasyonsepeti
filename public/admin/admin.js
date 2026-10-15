@@ -1,6 +1,7 @@
 // Yönetim paneli: moderasyon (ilanlar, ödemeler, promosyonlar, üyeler, kara liste, şikâyetler, mesajlar)
 // ve site içeriği/ayarları.
 import { ICONS } from "/assets/js/icons.js";
+import { renderAnalytics } from "/admin/analytics.js";
 import {
   api,
   fill,
@@ -476,6 +477,7 @@ function listEditor(key, { label, fields, titleOf, emptyText }) {
 
 const NAV = [
   { id: "panel", title: "Genel bakış", icon: "sparkles" },
+  { id: "ziyaretler", title: "Ziyaret istatistikleri", icon: "chart" },
   { group: "Moderasyon" },
   { id: "ilanlar", title: "İlanlar", icon: "image", badge: () => state.summary?.listings.pending },
   { id: "odemeler", title: "Ödemeler", icon: "wallet", badge: () => state.summary?.awaitingPayments },
@@ -597,6 +599,10 @@ function dashboardBody() {
     h(
       "div",
       { class: "stats-row" },
+      stat(s.today?.visitors || 0, "Bugünkü ziyaretçi", "ziyaretler"),
+      stat(s.today?.views || 0, "Bugünkü sayfa görüntüleme", "ziyaretler"),
+      stat((s.today?.events?.phone || 0) + (s.today?.events?.whatsapp || 0), "Bugün firmalara ulaşan", "ziyaretler"),
+      stat(s.today?.events?.request || 0, "Bugünkü teklif talebi", "ziyaretler"),
       stat(s.listings.pending, "Onay bekleyen ilan", "ilanlar", s.listings.pending ? "alert" : ""),
       stat(s.awaitingPayments, "Ödeme bekleyen sipariş", "odemeler", s.awaitingPayments ? "alert" : ""),
       stat(s.reports, "Açık şikâyet", "sikayetler", s.reports ? "alert" : ""),
@@ -1676,6 +1682,11 @@ const SECTION_NAMES = {
 
 const PAGES = {
   panel: { title: "Genel bakış", render: renderDashboard },
+  ziyaretler: {
+    title: "Ziyaret istatistikleri",
+    description: "Siteye kaç kişinin geldiği, nelere baktığı, nereden geldiği ve organizatörlere ne kadar ulaşıldığı.",
+    render: renderAnalytics,
+  },
   ilanlar: {
     title: "İlanlar",
     description: "Onay kuyruğu ve tüm ilanlar. Ödemesi onaylanmamış ilan yayına alınamaz.",

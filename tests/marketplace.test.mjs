@@ -401,3 +401,37 @@ test("hesap silinince teklif talepleri de silinir", async () => {
   assert.equal(reviews.reviews.length, 0, "silinen üyenin yorumu da silinir");
   assert.equal(reviews.summary, null);
 });
+
+test("ziyaret istatistikleri: çerezsiz sayım, kaynaklar ve olaylar", async () => {
+  const visit = (body, ua) =>
+    new Client(server.base).req("POST", "/api/v1/analytics/pageview", body, { "User-Agent": ua });
+  const mobile = "Mozilla/5.0 (Linux; Android 14; SM-A546B) AppleWebKit/537.36 Chrome/130 Mobile Safari/537.36";
+  const desktop = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/130 Safari/537.36";
+  await visit({ path: "/", ref: "https://www.google.com/" }, mobile);
+  await visit({ path: `/ilan/${listing.slug}-${listing.id}`, ref: `${server.base}/` }, mobile);
+  await visit({ path: "/ilanlar", q: "Palyaço  Gösterisi", utm: "instagram" }, desktop);
+  await visit({ path: "/admin/" }, desktop);
+  await visit({ path: "/" }, "Mozilla/5.0 (compatible; Googlebot/2.1)");
+
+  const r = (await admin.get("/api/admin/analytics?days=7")).data;
+  assert.equal(r.totals.views, 3, "panel sayfaları ve botlar sayılmaz");
+  assert.equal(r.totals.visitors, 2);
+  assert.deepEqual(
+    Object.fromEntries(r.sources.map((x) => [x.key, x.count])),
+    { Google: 1, Instagram: 1 },
+    "site içi gezinti kaynak olarak sayılmaz",
+  );
+  assert.deepEqual(Object.fromEntries(r.devices.map((x) => [x.key, x.count])), { Mobil: 1, Masaüstü: 1 });
+  assert.deepEqual(r.searches, [{ key: "palyaço gösterisi", count: 1 }]);
+  assert.equal(r.pages.find((p) => p.key.startsWith("/ilan/")).title, listing.title);
+  assert.equal(r.pages.find((p) => p.key === "/").title, "Ana sayfa");
+  assert.equal(r.daily.length, 7);
+  assert.equal(r.daily.at(-1).views, 3);
+  assert.equal(
+    r.hours.reduce((a, b) => a + b, 0),
+    3,
+  );
+  assert.deepEqual(r.totals.events, { signup: 2, listing: 1, phone: 1, request: 1, review: 1 });
+  assert.equal((await new Client(server.base).get("/api/admin/analytics")).status, 401, "yalnızca yönetici görür");
+  assert.equal((await admin.get("/api/admin/summary")).data.today.views, 3);
+});

@@ -14,9 +14,11 @@
 //   POST /api/v1/promotions/apply        { code, package, category } İndirimli fiyatı hesaplar
 //   POST /api/v1/analytics/click         { listingId, type }       İletişim butonu tıklaması
 //   POST /api/v1/analytics/view          { listingId }             İlan görüntülenmesi
+//   POST /api/v1/analytics/pageview      { path, ref, utm, q }     Sayfa görüntüleme (anonim site istatistiği)
 //   GET  /api/v1/organizer/calendar      ?listing=:id              İlandaki dolu günler (ya da kendi takviminiz)
 //   POST /api/v1/reports/blacklist       { phone, reason, note }   Kötü niyetli müşteri ihbarı (organizatör)
 import { CITIES } from "../../public/assets/js/locations.js";
+import { recordEvent, recordPageview } from "../lib/analytics.mjs";
 import { isBlacklisted, reportPhone } from "../lib/blacklist.mjs";
 import { busyDays, listBookings } from "../lib/bookings.mjs";
 import { getContent } from "../lib/content.mjs";
@@ -133,6 +135,7 @@ async function sendRequest(req, context, listing, content) {
     countHit("request-phone", mobile, DAY),
     countHit("request-listing", `${mobile}:${listing.id}`, DAY),
     countClick(listing.id, "request"),
+    recordEvent("request"),
   ]);
   if (content.security.requestSms) {
     const owner = await getUser(listing.userId);
@@ -176,7 +179,7 @@ async function firmReviews(req, id) {
     const body = await readJson(req, 4096);
     if (body.website) return json({ ok: true }, 201);
     await createReview(organizer, author, body);
-    await countHit("review", author.id, DAY);
+    await Promise.all([countHit("review", author.id, DAY), recordEvent("review")]);
     return json({ ok: true, status: "pending" }, 201);
   }
   return fail(404, "Bulunamadı.");
@@ -205,7 +208,7 @@ async function listingRoute(req, context, id, action, content) {
       return fail(429, "Çok fazla istek yapıldı. Lütfen biraz sonra tekrar deneyin.");
     await countHit("contact", context.ip, HOUR);
     const type = new URL(req.url).searchParams.get("type");
-    if (type === "phone" || type === "whatsapp") await countClick(listing.id, type);
+    if (type === "phone" || type === "whatsapp") await Promise.all([countClick(listing.id, type), recordEvent(type)]);
     let whatsapp = "";
     if (listing.whatsapp) {
       whatsapp = listing.phone.replace(/\D/g, "");
@@ -297,7 +300,21 @@ export default async (req, context) => {
       if (!listing || !isLive(listing)) return fail(404, "İlan bulunamadı.");
       if (await isLimited("click", `${context.ip}:${listingId}:${type}`, 3, DAY)) return json({ ok: true });
       await countHit("click", `${context.ip}:${listingId}:${type}`, DAY);
-      await countClick(listing.id, type);
+      await Promise.all([countClick(listing.id, type), recordEvent(type)]);
+      return json({ ok: true });
+    }
+
+    // Site geneli ziyaret istatistiği (çerezsiz, IP saklanmaz; bkz. lib/analytics.mjs)
+    if (resource === "analytics" && id === "pageview" && req.method === "POST") {
+      const ua = req.headers.get("user-agent") || "";
+      if (BOT_UA.test(ua) || (await isLimited("pageview", context.ip, 600, HOUR))) return json({ ok: true });
+      await countHit("pageview", context.ip, HOUR);
+      await recordPageview(await readJson(req, 2048), {
+        ip: context.ip,
+        ua,
+        geo: context.geo,
+        siteHost: url.hostname,
+      });
       return json({ ok: true });
     }
 
