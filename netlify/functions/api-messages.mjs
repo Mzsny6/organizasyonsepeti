@@ -1,4 +1,5 @@
-import { countHit, isLimited, requireAdmin } from "../lib/auth.mjs";
+import { requireAdmin } from "../lib/auth.mjs";
+import { countHit, isLimited } from "../lib/limits.mjs";
 import { messageStore, newId } from "../lib/content.mjs";
 import { fail, handleError, json, readJson } from "../lib/http.mjs";
 

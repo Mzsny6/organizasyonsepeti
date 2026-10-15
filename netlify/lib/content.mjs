@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { getStore } from "@netlify/blobs";
 import { DEFAULT_CONTENT, ITEM_TEMPLATES, THEMES } from "./defaults.mjs";
+import { slugify } from "./text.mjs";
 
 export const siteStore = () => getStore({ name: "site", consistency: "strong" });
 export const mediaStore = () => getStore({ name: "media", consistency: "strong" });
@@ -40,7 +41,7 @@ function normalize(value, shape, key) {
     const n = Number(value);
     return Number.isFinite(n) ? n : shape;
   }
-  return str(value, 8000);
+  return str(value, 20000);
 }
 
 function normalizeItem(item, tpl) {
@@ -54,7 +55,21 @@ export function normalizeContent(input) {
   const content = normalize(input, DEFAULT_CONTENT);
   if (!(content.settings.theme in THEMES)) content.settings.theme = DEFAULT_CONTENT.settings.theme;
   content.settings.whatsapp = normalizeWhatsapp(content.settings.whatsapp);
+  content.categories = normalizeCategories(content.categories);
   return content;
+}
+
+// Kategori adresleri (/ilanlar?kategori=...) benzersiz olmalı; boşsa addan üretilir.
+function normalizeCategories(categories) {
+  const seen = new Set();
+  return categories
+    .filter((c) => c.name.trim())
+    .map((c) => {
+      let slug = slugify(c.slug || c.name, "kategori");
+      for (let n = 2; seen.has(slug); n++) slug = `${slugify(c.slug || c.name, "kategori")}-${n}`;
+      seen.add(slug);
+      return { ...c, name: c.name.trim(), slug };
+    });
 }
 
 // wa.me bağlantısı için numarayı ülke koduyla, yalnızca rakam olarak saklar (0532... -> 90532...).

@@ -4,16 +4,17 @@ export const SECURITY_HEADERS = {
   "X-Frame-Options": "SAMEORIGIN",
 };
 
+// Başlık değeri dizi ise (ör. birden çok Set-Cookie) her biri ayrı eklenir.
 export function json(data, status = 200, headers = {}) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: {
-      "Content-Type": "application/json; charset=utf-8",
-      "Cache-Control": "no-store",
-      ...SECURITY_HEADERS,
-      ...headers,
-    },
+  const h = new Headers({
+    "Content-Type": "application/json; charset=utf-8",
+    "Cache-Control": "no-store",
+    ...SECURITY_HEADERS,
   });
+  for (const [key, value] of Object.entries(headers)) {
+    for (const v of [value].flat()) h.append(key, v);
+  }
+  return new Response(JSON.stringify(data), { status, headers: h });
 }
 
 export const fail = (status, error) => json({ error }, status);

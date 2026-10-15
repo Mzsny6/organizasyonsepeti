@@ -27,9 +27,11 @@ globalThis.Netlify = { env: { get: (name) => process.env[name] } };
 
 const toMatcher = (pattern) => {
   const parts = pattern.split("/");
+  const wildcard = parts.at(-1) === "*";
+  if (wildcard) parts.pop();
   return (pathname) => {
     const segs = pathname.split("/");
-    if (segs.length !== parts.length) return null;
+    if (wildcard ? segs.length <= parts.length : segs.length !== parts.length) return null;
     const params = {};
     for (let i = 0; i < parts.length; i++) {
       if (parts[i].startsWith(":")) params[parts[i].slice(1)] = decodeURIComponent(segs[i]);
@@ -81,7 +83,11 @@ async function serveStatic(pathname, res) {
 }
 
 createServer(async (req, res) => {
-  const url = new URL(req.url, `http://${req.headers.host}`);
+  let url = new URL(req.url, `http://${req.headers.host}`);
+  // Netlify Image CDN yerelde yok; görsel boyutlandırılmadan olduğu gibi sunulur.
+  if (url.pathname === "/.netlify/images" && url.searchParams.get("url")?.startsWith("/")) {
+    url = new URL(url.searchParams.get("url"), url.origin);
+  }
   try {
     for (const route of routes) {
       const params = route.match(url.pathname);

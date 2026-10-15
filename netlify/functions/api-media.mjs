@@ -1,6 +1,8 @@
-import { requireAdmin } from "../lib/auth.mjs";
+import { isAdmin, requireAdmin } from "../lib/auth.mjs";
 import { getContent, mediaStore, newId, usedMediaKeys } from "../lib/content.mjs";
 import { HttpError, fail, handleError, json } from "../lib/http.mjs";
+import { DAY, countHit, isLimited } from "../lib/limits.mjs";
+import { getSessionUser } from "../lib/users.mjs";
 
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 const KEY_PATTERN = /^[a-z0-9]+-[a-f0-9]{10}\.(jpg|png|webp|gif|avif)$/;
@@ -16,7 +18,8 @@ function detectImage(bytes) {
   return null;
 }
 
-async function upload(req) {
+// Anahtar öneki yükleyeni gösterir: "s" site yönetimi, "u" üyeler.
+async function upload(req, owner) {
   const declared = Number(req.headers.get("content-length") || 0);
   if (declared > MAX_UPLOAD_BYTES) throw new HttpError(413, "Görsel en fazla 5 MB olabilir.");
   if (!(req.headers.get("content-type") || "").startsWith("image/"))
@@ -27,17 +30,20 @@ async function upload(req) {
   const image = detectImage(bytes);
   if (!image) throw new HttpError(415, "Desteklenen biçimler: JPG, PNG, WEBP, GIF, AVIF.");
 
-  const name = decodeURIComponent(req.headers.get("x-file-name") || "").slice(0, 120);
-  const key = `${Date.now().toString(36)}-${newId()}.${image.ext}`;
+  let name = "";
+  try {
+    name = decodeURIComponent(req.headers.get("x-file-name") || "").slice(0, 120);
+  } catch {}
+  const key = `${owner === "admin" ? "s" : "u"}${Date.now().toString(36)}-${newId()}.${image.ext}`;
   await mediaStore().set(key, bytes, {
-    metadata: { contentType: image.type, size: bytes.length, name, uploadedAt: new Date().toISOString() },
+    metadata: { contentType: image.type, size: bytes.length, name, owner, uploadedAt: new Date().toISOString() },
   });
   return json({ key, url: `/media/${key}` }, 201);
 }
 
 async function list() {
   const store = mediaStore();
-  const [{ blobs }, content] = await Promise.all([store.list(), getContent()]);
+  const [{ blobs }, content] = await Promise.all([store.list({ prefix: "s" }), getContent()]);
   const used = usedMediaKeys(content);
   const items = await Promise.all(
     blobs.map(async ({ key }) => {
@@ -51,12 +57,20 @@ async function list() {
 
 export default async (req, context) => {
   try {
-    await requireAdmin(req);
     const key = context.params?.key;
+    if (!key && req.method === "POST") {
+      if (await isAdmin(req)) return await upload(req, "admin");
+      const user = await getSessionUser(req);
+      if (!user) return fail(401, "Oturumunuz sona erdi, lütfen tekrar giriş yapın.");
+      if (await isLimited("upload", user.id, 150, DAY))
+        return fail(429, "Bugün için görsel yükleme sınırına ulaştınız.");
+      await countHit("upload", user.id, DAY);
+      return await upload(req, user.id);
+    }
+    await requireAdmin(req);
     if (!key && req.method === "GET") return await list();
-    if (!key && req.method === "POST") return await upload(req);
     if (key && req.method === "DELETE") {
-      if (!KEY_PATTERN.test(key)) return fail(404, "Görsel bulunamadı.");
+      if (!KEY_PATTERN.test(key) || !key.startsWith("s")) return fail(404, "Görsel bulunamadı.");
       if (usedMediaKeys(await getContent()).has(key)) {
         return fail(409, "Bu görsel sitede kullanılıyor. Önce kullanıldığı yerden kaldırın.");
       }

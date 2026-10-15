@@ -1,228 +1,192 @@
 // Sitenin varsayılan içeriği. Yönetim panelinden kaydedilen içerik bunun üzerine yazılır;
 // panelde hiç dokunulmamış alanlar buradaki değerlerle gösterilir.
 
+const KVKK = `Bu aydınlatma metni, 6698 sayılı Kişisel Verilerin Korunması Kanunu ("KVKK") uyarınca, {siteName} web sitesini kullanırken paylaştığınız kişisel verilerin nasıl işlendiği hakkında sizi bilgilendirmek amacıyla hazırlanmıştır.
+
+## Veri sorumlusu
+
+{contact}
+
+## İşlenen kişisel veriler
+
+- Üyelik bilgileri: ad soyad, firma adı, e-posta adresi, telefon numarası ve şifreniz (şifreler geri döndürülemez biçimde, şifrelenerek saklanır)
+- İlan bilgileri: ilan metni, fotoğraflar, hizmet verilen il/ilçe, fiyat bilgisi, ilanda paylaşılan telefon numarası ve Instagram hesabı
+- İletişim ve şikâyet formlarında paylaştığınız bilgiler
+
+## İşleme amaçları
+
+- Üyelik hesabınızı oluşturmak ve yönetmek
+- İlanlarınızı yayınlamak, kontrol etmek ve ziyaretçilerin size ulaşmasını sağlamak
+- Şikâyet ve iletişim taleplerini yanıtlamak, platform güvenliğini sağlamak
+- Yasal yükümlülüklerimizi yerine getirmek
+
+## Toplama yöntemi ve hukuki sebep
+
+Kişisel verileriniz web sitemizdeki formlar aracılığıyla elektronik ortamda toplanır ve KVKK'nın 5. maddesinin 2. fıkrasında yer alan "bir sözleşmenin kurulması veya ifasıyla doğrudan doğruya ilgili olması", "veri sorumlusunun hukuki yükümlülüğünü yerine getirebilmesi" ve "ilgili kişinin kendisi tarafından alenileştirilmiş olması" hukuki sebeplerine dayanılarak işlenir.
+
+## Aktarım ve yayın
+
+İlanınızda yer alan bilgiler (firma adı, ilan metni, fotoğraflar, telefon numarası, Instagram hesabı) ilanınız yayında olduğu sürece site ziyaretçilerine açık olarak gösterilir. Bunun dışında kişisel verileriniz üçüncü kişilere satılmaz. Web sitemiz, sunucuları yurt dışında bulunan bir barındırma hizmet sağlayıcısında (Netlify) çalıştığından, verileriniz bu hizmet sağlayıcının sunucularında saklanır.
+
+## Saklama süresi
+
+Verileriniz üyeliğiniz ve ilanlarınız devam ettiği sürece ve ilgili mevzuatta öngörülen süreler boyunca saklanır; bu sürelerin sonunda silinir. Hesabınızın silinmesini istediğinizde ilanlarınız ve fotoğraflarınız da silinir.
+
+## Haklarınız
+
+KVKK'nın 11. maddesi uyarınca kişisel verilerinizin işlenip işlenmediğini öğrenme, işlenmişse bilgi talep etme, işlenme amacını ve amacına uygun kullanılıp kullanılmadığını öğrenme, eksik veya yanlış işlenmişse düzeltilmesini, KVKK'da öngörülen şartlar çerçevesinde silinmesini veya yok edilmesini isteme haklarına sahipsiniz. Bu haklarınızı kullanmak için yukarıdaki iletişim bilgilerinden bize ulaşabilirsiniz.`;
+
+const TERMS = `{siteName}, organizasyon hizmeti veren firmalar ile organizasyon arayan kişileri bir araya getiren bir ilan platformudur. Siteyi kullanan ve üye olan herkes aşağıdaki koşulları kabul etmiş sayılır.
+
+## Platformun rolü
+
+{siteName} ilanlarda sunulan hizmetlerin tarafı değildir. Hizmetin kapsamı, fiyatı, ödemesi ve teslimi ilan veren firma ile hizmet alan kişi arasında doğrudan belirlenir. {siteName}, taraflar arasındaki anlaşmazlıklardan sorumlu tutulamaz.
+
+## Üyelik
+
+- Üyelik ve ilan vermek ücretsizdir.
+- Üyelik sırasında verdiğiniz bilgilerin doğru ve güncel olmasından siz sorumlusunuz.
+- Hesabınızın şifresini korumak sizin sorumluluğunuzdadır.
+
+## İlan kuralları
+
+- İlanlar yalnızca organizasyon ve etkinlik hizmetleri için verilebilir.
+- İlan başlığı, açıklaması, fiyatı ve fotoğrafları gerçeği yansıtmalıdır.
+- Başkasına ait fotoğraflar izinsiz kullanılamaz.
+- Yanıltıcı, yasa dışı, müstehcen ya da hakaret içeren içerikler yayınlanmaz.
+- Aynı hizmet için birden fazla kopya ilan verilemez.
+
+## İlanların kontrolü
+
+Gönderilen ilanlar yayına alınmadan önce kontrol edilir. {siteName}, kurallara uymayan ilanları gerekçe göstererek reddetme, yayından kaldırma ve kuralları tekrar tekrar ihlal eden hesapları askıya alma hakkını saklı tutar.
+
+## Değişiklikler
+
+Bu koşullar gerektiğinde güncellenebilir. Güncel metin her zaman bu sayfada yayınlanır.
+
+## İletişim
+
+{contact}`;
+
 export const DEFAULT_CONTENT = {
   settings: {
     siteName: "Organizasyon Sepeti",
-    tagline: "Özel günleriniz için şık organizasyonlar",
+    tagline: "Organizasyon firmalarını keşfedin, karşılaştırın, doğrudan ulaşın.",
     siteUrl: "https://organizasyonsepeti.net",
     theme: "rose",
     phone: "",
     whatsapp: "",
-    whatsappMessage: "Merhaba, organizasyon için bilgi almak istiyorum.",
+    whatsappMessage: "Merhaba, Organizasyon Sepeti hakkında bilgi almak istiyorum.",
     email: "",
     address: "",
-    serviceArea: "",
     workingHours: "",
     instagram: "",
     facebook: "",
     tiktok: "",
-    seoTitle: "Organizasyon Sepeti | Doğum Günü, Nişan, Kına ve Özel Gün Organizasyonları",
+    seoTitle: "Organizasyon Sepeti | Doğum Günü, Nişan, Kına ve Düğün Organizasyon Firmaları",
     seoDescription:
-      "Doğum günü, nişan, kına gecesi, baby shower, evlilik teklifi ve açılış organizasyonları. Balon süsleme ve kişiye özel konsept tasarımlarla özel günlerinizi birlikte hazırlayalım.",
+      "Türkiye genelinde doğum günü, nişan, kına, düğün, baby shower ve açılış organizasyon firmalarını bulun. İlanları karşılaştırın, firmalara doğrudan ulaşın. Firmalar için ilan vermek ücretsiz.",
     ogImage: "",
   },
 
   hero: {
-    eyebrow: "Doğum günü · Nişan · Kına · Baby shower",
-    title: "Her kutlamaya",
-    highlight: "zarif bir dokunuş",
+    eyebrow: "Türkiye'nin organizasyon ilan sitesi",
+    title: "Hayalinizdeki organizasyon",
+    highlight: "bir tık uzağınızda",
     subtitle:
-      "Balon süslemeden kişiye özel konsept tasarımlara; en özel günleriniz için şık ve özenli organizasyonlar hazırlıyoruz. Siz hayal edin, gerisini biz düşünelim.",
-    primaryCta: "Ücretsiz Teklif Al",
-    secondaryCta: "Hizmetlerimizi İnceleyin",
+      "Doğum günü, nişan, kına, düğün ve daha fazlası için şehrinizdeki organizasyon firmalarını bulun, ilanları karşılaştırın ve doğrudan iletişime geçin.",
     image: "",
-    badges: ["Kişiye özel tasarım", "Zamanında kurulum", "Özenli ekip"],
   },
 
   sections: {
-    services: {
-      eyebrow: "Hizmetlerimiz",
-      title: "Her güzel an için bir organizasyon",
-      text: "Küçük bir ev kutlamasından kalabalık davetlere kadar, hayalinizdeki konsepti baştan sona hazırlıyoruz.",
+    categories: { eyebrow: "Kategoriler", title: "Ne kutluyorsunuz?", text: "" },
+    featured: { eyebrow: "Vitrin", title: "Öne çıkan ilanlar", text: "" },
+    recent: { eyebrow: "Yeni ilanlar", title: "Son eklenen ilanlar", text: "" },
+    cities: { eyebrow: "Şehirler", title: "Şehrinizdeki organizasyon firmaları", text: "" },
+    process: { eyebrow: "Nasıl çalışır?", title: "Üç adımda organizasyon firmanızı bulun", text: "" },
+    vendor: {
+      eyebrow: "Organizasyon firmaları için",
+      title: "İlanınızı ücretsiz yayınlayın",
+      text: "Hizmetlerinizi organizasyon arayan kişilere ulaştırın. Üye olun, fotoğraflı ilanınızı oluşturun; müşterileriniz size doğrudan ulaşsın.",
     },
-    process: {
-      eyebrow: "Nasıl çalışıyoruz?",
-      title: "Dört adımda kusursuz bir gün",
-      text: "",
-    },
-    packages: {
-      eyebrow: "Paketler",
-      title: "İhtiyacınıza uygun paketler",
-      text: "Fiyatlar mekâna, tarihe ve konsepte göre değişir. Size özel teklif için bize yazmanız yeterli.",
-    },
-    gallery: {
-      eyebrow: "Galeri",
-      title: "Hazırladığımız organizasyonlardan",
-      text: "",
-    },
-    about: {
-      eyebrow: "Hakkımızda",
-      title: "Küçük detaylar, büyük mutluluklar",
-      text: "Organizasyon Sepeti olarak her kutlamanın kendine has bir hikâyesi olduğuna inanıyoruz. Renk seçiminden balonların yerleşimine, masadaki en küçük süse kadar her detayı sizin hikâyenize göre tasarlıyoruz.\n\nAmacımız özel gününüzü stressiz ve unutulmaz kılmak: siz misafirlerinizle anın tadını çıkarırken hazırlığın tüm yükünü biz üstleniyoruz.",
-      image: "",
-    },
-    testimonials: {
-      eyebrow: "Yorumlar",
-      title: "Mutlu misafirlerimiz ne diyor?",
-      text: "",
-    },
-    faq: {
-      eyebrow: "Sıkça sorulanlar",
-      title: "Merak ettikleriniz",
-      text: "",
-    },
-    contact: {
-      eyebrow: "İletişim",
-      title: "Hayalinizdeki organizasyonu konuşalım",
-      text: "Formu doldurun, en kısa sürede size dönüş yapalım. Dilerseniz WhatsApp'tan da hemen yazabilirsiniz.",
-    },
+    faq: { eyebrow: "Sıkça sorulanlar", title: "Merak ettikleriniz", text: "" },
   },
 
-  services: [
-    {
-      id: "dogum-gunu",
-      title: "Doğum Günü",
-      text: "Çocuklardan yetişkinlere; temaya özel balon, masa ve pasta köşesi tasarımlarıyla unutulmaz doğum günleri.",
-      icon: "cake",
-      image: "",
-      price: "",
-    },
-    {
-      id: "nisan-soz",
-      title: "Nişan & Söz",
-      text: "Zarif çiçek ve balon süslemeleri, isim panoları ve masa düzeniyle en özel gününüze yakışan şıklık.",
-      icon: "ring",
-      image: "",
-      price: "",
-    },
-    {
-      id: "kina-gecesi",
-      title: "Kına Gecesi",
-      text: "Geleneksel ruhu modern dokunuşlarla buluşturan kına tahtı, tepsi ve dekor hazırlıkları.",
-      icon: "moon",
-      image: "",
-      price: "",
-    },
-    {
-      id: "baby-shower",
-      title: "Baby Shower & Cinsiyet Partisi",
-      text: "Pastel tonlarda, sürpriz anı için özel balon ve konfeti kurgularıyla tatlı kutlamalar.",
-      icon: "baby",
-      image: "",
-      price: "",
-    },
-    {
-      id: "evlilik-teklifi",
-      title: "Evlilik Teklifi",
-      text: "Mum, çiçek ve ışık düzenlemeleriyle hayatınızın sorusuna yakışan romantik sürprizler.",
-      icon: "heart",
-      image: "",
-      price: "",
-    },
-    {
-      id: "acilis-kurumsal",
-      title: "Açılış & Kurumsal",
-      text: "Mağaza açılışları, lansmanlar ve şirket etkinlikleri için marka renklerinize özel balon ve dekor.",
-      icon: "store",
-      image: "",
-      price: "",
-    },
+  vendorPoints: [
+    "Üyelik ve ilan vermek tamamen ücretsiz",
+    "Fotoğraflı, detaylı ilan sayfası",
+    "Müşteriler sizi doğrudan telefon ve WhatsApp'tan arar",
+    "İlanlarınızı dilediğiniz zaman güncelleyin",
+  ],
+
+  categories: [
+    { id: "dogum-gunu", slug: "dogum-gunu", name: "Doğum Günü", icon: "cake" },
+    { id: "nisan-soz", slug: "nisan-soz", name: "Nişan & Söz", icon: "ring" },
+    { id: "kina-gecesi", slug: "kina-gecesi", name: "Kına Gecesi", icon: "moon" },
+    { id: "dugun", slug: "dugun", name: "Düğün", icon: "flower" },
+    { id: "baby-shower", slug: "baby-shower", name: "Baby Shower & Cinsiyet Partisi", icon: "baby" },
+    { id: "sunnet", slug: "sunnet", name: "Sünnet Organizasyonu", icon: "crown" },
+    { id: "evlilik-teklifi", slug: "evlilik-teklifi", name: "Evlilik Teklifi", icon: "heart" },
+    { id: "acilis-kurumsal", slug: "acilis-kurumsal", name: "Açılış & Kurumsal", icon: "store" },
+    { id: "balon-susleme", slug: "balon-susleme", name: "Balon Süsleme", icon: "balloon" },
+    { id: "mekan", slug: "mekan", name: "Mekân & Salon", icon: "building" },
+    { id: "fotograf-video", slug: "fotograf-video", name: "Fotoğraf & Video", icon: "camera" },
+    { id: "muzik-dj", slug: "muzik-dj", name: "Müzik & DJ", icon: "music" },
+    { id: "pasta-ikram", slug: "pasta-ikram", name: "Pasta & İkram", icon: "utensils" },
+    { id: "animasyon", slug: "animasyon", name: "Animasyon & Palyaço", icon: "smile" },
+    { id: "diger", slug: "diger", name: "Diğer Hizmetler", icon: "sparkles" },
   ],
 
   steps: [
+    { id: "s1", title: "Arayın", text: "Kategori ve şehir seçerek size uygun organizasyon firmalarını listeleyin." },
+    { id: "s2", title: "Karşılaştırın", text: "Fotoğraflara, hizmet detaylarına ve fiyatlara göz atın." },
     {
-      id: "s1",
-      title: "Bize ulaşın",
-      text: "Formu doldurun ya da WhatsApp'tan yazın; tarihi, mekânı ve hayalinizdeki konsepti konuşalım.",
-    },
-    { id: "s2", title: "Konsept & teklif", text: "Size özel tasarım önerimizi ve net fiyat teklifimizi hazırlayalım." },
-    { id: "s3", title: "Kurulum", text: "Organizasyon günü ekibimiz mekâna gelip tüm süslemeyi özenle kursun." },
-    { id: "s4", title: "Keyfini çıkarın", text: "Siz sadece anın tadını çıkarın, gerisini biz düşünelim." },
-  ],
-
-  packages: [
-    {
-      id: "mini",
-      name: "Mini Kutlama",
-      price: "",
-      note: "Ev içi küçük kutlamalar için",
-      features: ["Tema renklerinde balon süsleme", "İsim / yaş panosu", "Temel masa süslemesi", "Kurulum dahil"],
-      featured: false,
-    },
-    {
-      id: "klasik",
-      name: "Klasik Paket",
-      price: "",
-      note: "En çok tercih edilen",
-      features: [
-        "Balon zinciri ve balon takı",
-        "Fon panosu & karşılama tabelası",
-        "Pasta masası düzenlemesi",
-        "Konsepte uygun aksesuarlar",
-        "Kurulum dahil",
-      ],
-      featured: true,
-    },
-    {
-      id: "premium",
-      name: "Premium Paket",
-      price: "",
-      note: "Hayalinizdeki her detay",
-      features: [
-        "Kişiye özel konsept tasarımı",
-        "Çiçek & balon kombin süsleme",
-        "Işıklı dekor ve neon yazı",
-        "Karşılama alanı ve fotoğraf köşesi",
-        "Kurulum dahil",
-      ],
-      featured: false,
+      id: "s3",
+      title: "İletişime geçin",
+      text: "Beğendiğiniz firmayı arayın ya da WhatsApp'tan yazın; detayları birlikte netleştirin.",
     },
   ],
-
-  stats: [],
-
-  gallery: [],
-
-  testimonials: [],
 
   faq: [
     {
       id: "f1",
-      q: "Ne kadar önceden rezervasyon yapmalıyım?",
-      a: "Özellikle hafta sonları yoğun olduğu için tarihinizi netleştirir netleştirmez bize ulaşmanızı öneririz. Müsaitlik durumuna göre kısa süreli talepleri de değerlendiriyoruz.",
+      q: "İlan vermek ücretli mi?",
+      a: "Hayır. Üye olmak ve ilan vermek tamamen ücretsizdir.",
     },
     {
       id: "f2",
-      q: "Kendi konseptimi getirebilir miyim?",
-      a: "Elbette! Beğendiğiniz bir görsel, sevdiğiniz renkler ya da bir tema… Paylaştığınız fikirleri size özel bir tasarıma dönüştürüyoruz.",
+      q: "İlanım ne zaman yayına girer?",
+      a: 'Gönderdiğiniz ilanlar ekibimiz tarafından kontrol edildikten sonra yayına alınır. İlanınızın durumunu hesabınızdaki "İlanlarım" sayfasından takip edebilirsiniz.',
     },
     {
       id: "f3",
-      q: "Hangi bölgelere hizmet veriyorsunuz?",
-      a: "Adresinizi bize iletmeniz yeterli; konumunuza göre kurulum planını ve varsa ulaşım ücretini teklifinizle birlikte paylaşıyoruz.",
+      q: "Organizasyon firmasıyla nasıl iletişime geçerim?",
+      a: 'İlan sayfasındaki "Telefonu göster" ya da WhatsApp butonunu kullanarak firmaya doğrudan ulaşabilirsiniz.',
     },
     {
       id: "f4",
-      q: "Ödeme nasıl yapılıyor?",
-      a: "Ödeme ve kapora detaylarını teklifinizle birlikte açıkça paylaşıyoruz; sürpriz bir ek ücretle karşılaşmazsınız.",
+      q: "Ödemeyi siteye mi yapıyorum?",
+      a: "Hayır. Sitemiz firmalarla sizi buluşturan bir ilan platformudur; fiyat, anlaşma ve ödeme doğrudan sizinle firma arasında yapılır.",
     },
     {
       id: "f5",
-      q: "Kurulum ne kadar sürer?",
-      a: "Organizasyonun büyüklüğüne göre değişir. Ekibimiz etkinlik saatinden önce mekâna gelerek kurulumu tamamlar.",
+      q: "Uygunsuz bir ilan gördüm, ne yapmalıyım?",
+      a: 'İlan sayfasındaki "İlanı şikâyet et" bağlantısıyla bize bildirebilirsiniz. Bildirimler incelenir, kurallara aykırı ilanlar yayından kaldırılır.',
     },
   ],
+
+  // {siteName}, {phone}, {email}, {address}, {contact} yer tutucuları sayfa çizilirken
+  // iletişim bilgileriyle değiştirilir. "## " başlık, "- " madde işaretidir.
+  legal: {
+    kvkk: KVKK,
+    terms: TERMS,
+  },
 };
 
 // Panelde "yeni ekle" denildiğinde ve sunucu doğrulamasında kullanılan boş kayıt şablonları.
 export const ITEM_TEMPLATES = {
-  services: { id: "", title: "", text: "", icon: "balloon", image: "", price: "" },
+  categories: { id: "", slug: "", name: "", icon: "balloon" },
   steps: { id: "", title: "", text: "" },
-  packages: { id: "", name: "", price: "", note: "", features: [], featured: false },
-  stats: { id: "", value: "", label: "" },
-  gallery: { id: "", image: "", caption: "", category: "" },
-  testimonials: { id: "", name: "", event: "", text: "", rating: 5 },
   faq: { id: "", q: "", a: "" },
 };
 
