@@ -247,6 +247,56 @@ test("teklif talebi gönderilir, organizatör görür ve durumunu değiştirir",
   assert.equal(own.status, 400);
 });
 
+test("değerlendirme: yalnızca teklif isteyen müşteri yazar, yönetici onaylar, firma yanıtlar", async () => {
+  const organizerId = (await organizer.get("/api/account/me")).data.user.id;
+  const url = `/api/v1/firms/${organizerId}/reviews`;
+  const review = { rating: 4, name: "Mehmet Kaya", comment: "Çok ilgili ve dakiklerdi, fotoğraflar harika çıktı." };
+
+  const empty = await client.get(url);
+  assert.equal(empty.status, 200);
+  assert.equal(empty.data.summary, null);
+
+  const anonymous = await new Client(server.base).post(url, review);
+  assert.equal(anonymous.status, 403);
+  assert.equal(anonymous.data.needsVerification, true);
+
+  const stranger = new Client(server.base);
+  await verifyPhone(stranger, "905350000001");
+  assert.equal((await stranger.post(url, review)).status, 403, "teklif istememiş müşteri yorum yazamaz");
+
+  assert.equal((await client.post(url, { ...review, rating: 9 })).status, 400);
+  const created = await client.post(url, review);
+  assert.equal(created.status, 201, JSON.stringify(created.data));
+  assert.equal((await client.post(url, review)).status, 409, "aynı firmaya ikinci yorum yazılamaz");
+  assert.equal((await client.get(url)).data.reviews.length, 0, "onaydan önce yayınlanmaz");
+
+  const summary = await admin.get("/api/admin/summary");
+  assert.equal(summary.data.pendingReviews, 1);
+  const [pending] = (await admin.get("/api/admin/reviews")).data.reviews;
+  assert.equal(pending.status, "pending");
+  const published = await admin.req("PATCH", `/api/admin/reviews/${organizerId}/${pending.id}`, {
+    status: "published",
+  });
+  assert.equal(published.status, 200);
+
+  const visible = (await client.get(url)).data;
+  assert.equal(visible.reviews.length, 1);
+  assert.equal(visible.reviews[0].authorName, "Mehmet K.", "tam ad yayınlanmaz");
+  assert.equal(visible.reviews[0].authorId, undefined);
+  assert.deepEqual(visible.summary, { avg: 4, count: 1 });
+
+  const firmHref = /href="(\/firma\/[^"#]+)/.exec((await client.get(`/ilan/${listing.slug}-${listing.id}`)).data)[1];
+  const firm = (await client.get(firmHref)).data;
+  assert.ok(firm.includes("Mehmet K."));
+  assert.ok(firm.includes('"aggregateRating"'));
+  assert.ok((await client.get("/hizmet/fotografci")).data.includes("rating-badge"), "ilan kartında yıldız görünür");
+
+  assert.equal((await client.post(`/api/account/reviews/${pending.id}/reply`, { text: "Teşekkürler!" })).status, 403);
+  const reply = await organizer.post(`/api/account/reviews/${pending.id}/reply`, { text: "Teşekkür ederiz!" });
+  assert.equal(reply.status, 200);
+  assert.equal((await client.get(url)).data.reviews[0].reply, "Teşekkür ederiz!");
+});
+
 test("şifremi unuttum: doğrulanmış telefona gelen kodla yeni şifre", async () => {
   await verifyPhone(organizer, ORGANIZER_MOBILE);
   const me = await organizer.get("/api/account/me");
@@ -317,4 +367,8 @@ test("hesap silinince teklif talepleri de silinir", async () => {
   assert.equal(removed.status, 200);
   const { requests } = (await organizer.get("/api/account/requests")).data;
   assert.equal(requests.length, 0);
+  const organizerId = (await organizer.get("/api/account/me")).data.user.id;
+  const reviews = (await organizer.get(`/api/v1/firms/${organizerId}/reviews`)).data;
+  assert.equal(reviews.reviews.length, 0, "silinen üyenin yorumu da silinir");
+  assert.equal(reviews.summary, null);
 });

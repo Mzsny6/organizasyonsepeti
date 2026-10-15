@@ -2661,3 +2661,226 @@ textarea {
 .dialog .form-note a {
   color: var(--accent);
 }
+
+/* ---------- Değerlendirmeler ---------- */
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.stars {
+  display: inline-flex;
+  gap: 2px;
+}
+.stars span .icon {
+  width: 18px;
+  height: 18px;
+  color: #d9d4e7;
+}
+.stars .is-on .icon {
+  color: #f5a623;
+  fill: currentColor;
+}
+.rating-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: auto;
+  color: var(--ink);
+  font-size: 13px;
+  white-space: nowrap;
+}
+.rating-badge .icon {
+  width: 15px;
+  height: 15px;
+  color: #f5a623;
+  fill: currentColor;
+}
+.rating-badge span {
+  color: var(--muted);
+  font-weight: 500;
+}
+.cl-loc {
+  flex-wrap: wrap;
+}
+.vendor-rating {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--ink-soft);
+  font-size: 13px;
+  text-decoration: none;
+}
+.vendor-rating .rating-badge {
+  margin-left: 0;
+}
+.vendor-rating:hover {
+  text-decoration: underline;
+}
+.firm-rating {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: inherit;
+  text-decoration: none;
+}
+.firm-rating strong {
+  color: var(--ink);
+}
+.reviews-layout {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: clamp(24px, 4vw, 48px);
+  align-items: start;
+}
+@media (max-width: 860px) {
+  .reviews-layout {
+    grid-template-columns: 1fr;
+  }
+}
+.review-summary {
+  position: sticky;
+  top: calc(var(--header-h) + 20px);
+  display: grid;
+  gap: 12px;
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: var(--surface);
+}
+@media (max-width: 860px) {
+  .review-summary {
+    position: static;
+  }
+}
+.review-summary h2 {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 800;
+}
+.review-avg {
+  font-family: var(--font-display);
+  font-size: 48px;
+  font-weight: 800;
+  line-height: 1;
+}
+.review-avg small {
+  margin-left: 6px;
+  color: var(--muted);
+  font-size: 18px;
+  font-weight: 600;
+}
+.review-summary .stars .icon {
+  width: 24px;
+  height: 24px;
+}
+.review-count {
+  color: var(--ink-soft);
+}
+.review-note {
+  display: flex;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.review-note .icon {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  color: var(--success);
+}
+.review-list {
+  display: grid;
+  gap: 14px;
+}
+.review {
+  display: grid;
+  gap: 10px;
+  padding: 20px 22px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--surface);
+}
+.review header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.review header > div {
+  display: grid;
+  flex: 1;
+}
+.review header small {
+  color: var(--muted);
+  font-size: 13px;
+}
+.review .vendor-avatar {
+  width: 40px;
+  height: 40px;
+  font-size: 16px;
+}
+.review-text p + p,
+.review-reply p + p {
+  margin-top: 8px;
+}
+.review-reply {
+  display: grid;
+  gap: 4px;
+  padding: 12px 16px;
+  border-left: 3px solid var(--accent);
+  border-radius: 0 12px 12px 0;
+  background: var(--accent-soft);
+  font-size: 14.5px;
+}
+.review-reply strong {
+  color: var(--accent);
+  font-size: 13px;
+}
+.star-input {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.star-input legend {
+  margin-bottom: 6px;
+  color: var(--ink-soft);
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.star-input-row {
+  display: inline-flex;
+  flex-direction: row-reverse;
+  gap: 4px;
+}
+.star-input-row input {
+  position: absolute;
+  opacity: 0;
+}
+.star-input-row label {
+  color: #d9d4e7;
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+.star-input-row label .icon {
+  width: 34px;
+  height: 34px;
+}
+.star-input-row label:hover,
+.star-input-row label:hover ~ label,
+.star-input-row input:checked ~ label {
+  color: #f5a623;
+}
+.star-input-row label:hover .icon,
+.star-input-row label:hover ~ label .icon,
+.star-input-row input:checked ~ label .icon {
+  fill: currentColor;
+}
+.star-input-row input:focus-visible + label {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}

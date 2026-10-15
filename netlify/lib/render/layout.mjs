@@ -4,7 +4,7 @@ import { dopingActive, formatPrice, listingPath } from "../listings.mjs";
 import { searchPath } from "./urls.mjs";
 
 // CSS/JS değiştiğinde tarayıcı önbelleğini kırmak için artırın.
-export const ASSET_VERSION = "5";
+export const ASSET_VERSION = "6";
 
 const ESCAPES = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
 export const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => ESCAPES[c]);
@@ -103,6 +103,21 @@ export const priceHtml = (x) =>
 
 export const locationText = (x) => (x.district ? `${x.city} / ${x.district}` : `${x.city} (il geneli)`);
 
+// Yıldız puanı: 4.8 -> "4,8" ve 5 yıldızlık gösterim
+export const fmtRating = (avg) =>
+  Number(avg).toLocaleString("tr-TR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+export function stars(rating, cls = "stars") {
+  const full = Math.round(rating);
+  return `<span class="${cls}" role="img" aria-label="5 üzerinden ${fmtRating(rating)} puan">${[1, 2, 3, 4, 5]
+    .map((n) => `<span class="${n <= full ? "is-on" : ""}">${icon("star")}</span>`)
+    .join("")}</span>`;
+}
+// x.rating: { avg, count } (firma değerlendirmeleri, bkz. lib/reviews.mjs)
+export const ratingBadge = (rating) =>
+  rating?.count
+    ? `<span class="rating-badge">${icon("star")}<strong>${fmtRating(rating.avg)}</strong><span>(${rating.count})</span></span>`
+    : "";
+
 // Favori butonu: durum tarayıcıda (os_fav çerezi) tutulur, site.js işaretler.
 export const favButton = (id, { label = false } = {}) =>
   `<button type="button" class="fav-btn${label ? " has-label" : ""}" data-fav="${esc(id)}" aria-pressed="false" aria-label="Favorilere ekle">${icon("heart")}${label ? "<span>Favorilere ekle</span>" : ""}</button>`;
@@ -125,7 +140,7 @@ export function listingCard(x, cats, { eager = false, showcase = false } = {}) {
     <div class="cl-body">
       <p class="cl-cat">${esc(cat?.name || "Organizasyon")}</p>
       <h3><a href="${esc(href)}">${esc(x.title)}</a></h3>
-      <p class="cl-loc">${icon("pin")}${esc(locationText(x))}</p>
+      <p class="cl-loc">${icon("pin")}${esc(locationText(x))}${ratingBadge(x.rating)}</p>
       <div class="cl-foot">
         ${priceHtml(x)}
         <span class="cl-company">${esc(x.company)}</span>
@@ -260,6 +275,27 @@ ${siteFooter(c)}
 </div>
 </body>
 </html>`;
+}
+
+// İletişim bariyeri: telefon numarası SMS koduyla doğrulanınca iletişim bilgileri açılır.
+export function otpDialog() {
+  return `<dialog class="dialog" id="dogrulama">
+    <form class="dialog-form" data-otp-form novalidate>
+      <header class="dialog-head">
+        <h2>Telefonunuzu doğrulayın</h2>
+        <button type="button" class="icon-btn" data-close-dialog aria-label="Kapat">${icon("close")}</button>
+      </header>
+      <p class="dialog-lead">Sahte arama, talep ve yorumları engellemek için numaranızı SMS koduyla doğrulamanızı istiyoruz. Bu işlem bir kez yapılır.</p>
+      <label class="field" data-step="phone"><span>Cep telefonunuz</span><input name="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="05xx xxx xx xx" required></label>
+      <label class="field" data-step="code" hidden><span>SMS ile gelen 6 haneli kod</span><input name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="••••••"></label>
+      <p class="form-status" role="status" aria-live="polite"></p>
+      <div class="dialog-actions">
+        <button type="button" class="btn btn-ghost" data-close-dialog>Vazgeç</button>
+        <button type="submit" class="btn btn-primary" data-otp-submit>Kod gönder</button>
+      </div>
+      <p class="form-note">Numaranız organizatörlerle paylaşılmaz. <a href="/kvkk" target="_blank">KVKK Aydınlatma Metni</a></p>
+    </form>
+  </dialog>`;
 }
 
 // Sayfa üstü: içerik sayfalarında başlık bandı

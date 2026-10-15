@@ -17,6 +17,7 @@ import { renderListing } from "../lib/render/listing.mjs";
 import { renderContact, renderLegal, renderNotFound } from "../lib/render/pages.mjs";
 import { parseSearch, renderSearch } from "../lib/render/search.mjs";
 import { cityFromSlug, isLandingPath, searchPath } from "../lib/render/urls.mjs";
+import { publishedReviews, ratingSummary } from "../lib/reviews.mjs";
 import { getUser } from "../lib/users.mjs";
 
 const CSP = [
@@ -30,6 +31,12 @@ const CSP = [
   "base-uri 'self'",
   "form-action 'self'",
 ].join("; ");
+
+// Arama dizini + firma puanları (ilan kartlarında yıldız gösterilir)
+async function loadIndex() {
+  const [index, ratings] = await Promise.all([readIndex(), ratingSummary()]);
+  return index.map((x) => (ratings[x.userId] ? { ...x, rating: ratings[x.userId] } : x));
+}
 
 const html = (body, { status = 200, cacheable = true } = {}) =>
   new Response(body, {
@@ -55,7 +62,7 @@ async function listingPage(c, param) {
   if (param !== `${listing.slug}-${listing.id}`) {
     return new Response(null, { status: 301, headers: { Location: listingPath(listing) } });
   }
-  const [owner, index] = await Promise.all([getUser(listing.userId), readIndex()]);
+  const [owner, index] = await Promise.all([getUser(listing.userId), loadIndex()]);
   return html(renderListing(c, listing, owner, index));
 }
 
@@ -87,7 +94,7 @@ async function searchPage(c, url, path) {
   if (isLandingPath(target) && target !== `${path}${url.search}`) {
     return new Response(null, { status: 301, headers: { Location: target } });
   }
-  return html(renderSearch(c, await readIndex(), params));
+  return html(renderSearch(c, await loadIndex(), params));
 }
 
 async function firmPage(c, param) {
@@ -97,7 +104,8 @@ async function firmPage(c, param) {
   }
   const path = firmPath({ company: owner.company, userId: owner.id });
   if (`/firma/${param}` !== path) return new Response(null, { status: 301, headers: { Location: path } });
-  return html(renderFirm(c, owner, await readIndex()));
+  const [index, reviews] = await Promise.all([loadIndex(), publishedReviews(owner.id)]);
+  return html(renderFirm(c, owner, index, reviews));
 }
 
 // Favoriler tarayıcıdaki "os_fav" çerezinde tutulur (ör. "a1b2c3d4e5.f6a7b8c9d0"); sayfa kişiye özeldir, önbelleğe alınmaz.
@@ -117,12 +125,12 @@ export default async (req, context) => {
   }
 
   try {
-    if (path === "/") return html(renderHome(content, await readIndex()));
+    if (path === "/") return html(renderHome(content, await loadIndex()));
     if (path === "/ilanlar" || /^\/(hizmet|il|etkinlik)\//.test(path)) return await searchPage(content, url, path);
     if (path.startsWith("/ilan/")) return await listingPage(content, context.params?.slug);
     if (path.startsWith("/firma/")) return await firmPage(content, context.params?.slug);
     if (path === "/favoriler") {
-      return html(renderFavorites(content, await readIndex(), favoriteIds(req)), { cacheable: false });
+      return html(renderFavorites(content, await loadIndex(), favoriteIds(req)), { cacheable: false });
     }
     if (path === "/kvkk") return html(renderLegal(content, "kvkk"));
     if (path === "/kullanim-kosullari") return html(renderLegal(content, "terms"));

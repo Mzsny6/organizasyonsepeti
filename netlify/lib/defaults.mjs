@@ -13,6 +13,7 @@ const KVKK = `Bu aydınlatma metni, 6698 sayılı Kişisel Verilerin Korunması 
 - İlan bilgileri: ilan metni, fotoğraflar, hizmet verilen il/ilçe, fiyat bilgisi, ilanda paylaşılan telefon numarası ve Instagram hesabı
 - SMS doğrulaması: organizatörlerin iletişim bilgilerini görmek ya da teklif talebi göndermek için doğruladığınız cep telefonu numarası
 - Teklif talepleri: adınız, telefon numaranız, etkinlik tarihi, kişi sayısı ve mesajınız
+- Değerlendirmeler: verdiğiniz puan, yorumunuz ve adınız (firma sayfasında yalnızca adınız ve soyadınızın baş harfi gösterilir)
 - Kara liste bildirimleri: organizatörlerin asılsız adres, kapıda iptal gibi kötü niyetli davranış nedeniyle bildirdiği telefon numaraları
 - İletişim ve şikâyet formlarında paylaştığınız bilgiler
 
@@ -31,7 +32,7 @@ Kişisel verileriniz web sitemizdeki formlar aracılığıyla elektronik ortamda
 
 ## Aktarım ve yayın
 
-İlanınızda yer alan bilgiler (firma adı, ilan metni, fotoğraflar, telefon numarası, Instagram hesabı) ilanınız yayında olduğu sürece site ziyaretçilerine açık olarak gösterilir. Teklif talebi gönderdiğinizde adınız, telefon numaranız ve talep ayrıntılarınız yalnızca talebi gönderdiğiniz organizatörle paylaşılır. Doğrulama kodları, Türkiye'de faaliyet gösteren SMS hizmet sağlayıcısı aracılığıyla gönderilir. Bunun dışında kişisel verileriniz üçüncü kişilere satılmaz. Web sitemiz, sunucuları yurt dışında bulunan bir barındırma hizmet sağlayıcısında (Netlify) çalıştığından, verileriniz bu hizmet sağlayıcının sunucularında saklanır.
+İlanınızda yer alan bilgiler (firma adı, ilan metni, fotoğraflar, telefon numarası, Instagram hesabı) ilanınız yayında olduğu sürece site ziyaretçilerine açık olarak gösterilir. Teklif talebi gönderdiğinizde adınız, telefon numaranız ve talep ayrıntılarınız yalnızca talebi gönderdiğiniz organizatörle paylaşılır. Onaylanan değerlendirmeler (puan, yorum, adınız ve soyadınızın baş harfi) firma sayfasında herkese açık yayınlanır. Doğrulama kodları, Türkiye'de faaliyet gösteren SMS hizmet sağlayıcısı aracılığıyla gönderilir. Bunun dışında kişisel verileriniz üçüncü kişilere satılmaz. Web sitemiz, sunucuları yurt dışında bulunan bir barındırma hizmet sağlayıcısında (Netlify) çalıştığından, verileriniz bu hizmet sağlayıcının sunucularında saklanır.
 
 ## Saklama süresi
 

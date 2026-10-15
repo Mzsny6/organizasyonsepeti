@@ -1212,3 +1212,34 @@
   justify-content: space-between;
   gap: 10px;
 }
+
+/* Değerlendirmeler */
+.rv-stars {
+  color: #f5a623;
+  letter-spacing: 1px;
+}
+.rv-stars i {
+  color: #d9d4e7;
+  font-style: normal;
+}
+.rv-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink-soft);
+}
+.rv-summary strong {
+  color: var(--ink);
+  font-size: 22px;
+}
+.sent-item a.sent-review {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+.sent-review .icon {
+  width: 15px;
+  height: 15px;
+}

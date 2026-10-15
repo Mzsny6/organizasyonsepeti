@@ -7,6 +7,8 @@ import {
   icon,
   favButton,
   imageUrl,
+  otpDialog,
+  ratingBadge,
   layout,
   listingCard,
   locationText,
@@ -110,27 +112,6 @@ function requestDialog(c, listing) {
   </dialog>`;
 }
 
-// İletişim bariyeri: telefon numarası SMS koduyla doğrulanınca iletişim bilgileri açılır.
-function otpDialog() {
-  return `<dialog class="dialog" id="dogrulama">
-    <form class="dialog-form" data-otp-form novalidate>
-      <header class="dialog-head">
-        <h2>Telefonunuzu doğrulayın</h2>
-        <button type="button" class="icon-btn" data-close-dialog aria-label="Kapat">${icon("close")}</button>
-      </header>
-      <p class="dialog-lead">Sahte aramaları ve botları engellemek için organizatörün iletişim bilgileri, numaranızı SMS koduyla doğruladıktan sonra görünür. Bu işlem bir kez yapılır.</p>
-      <label class="field" data-step="phone"><span>Cep telefonunuz</span><input name="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="05xx xxx xx xx" required></label>
-      <label class="field" data-step="code" hidden><span>SMS ile gelen 6 haneli kod</span><input name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="••••••"></label>
-      <p class="form-status" role="status" aria-live="polite"></p>
-      <div class="dialog-actions">
-        <button type="button" class="btn btn-ghost" data-close-dialog>Vazgeç</button>
-        <button type="submit" class="btn btn-primary" data-otp-submit>Kod gönder</button>
-      </div>
-      <p class="form-note">Numaranız organizatörlerle paylaşılmaz. <a href="/kvkk" target="_blank">KVKK Aydınlatma Metni</a></p>
-    </form>
-  </dialog>`;
-}
-
 export function renderListing(c, listing, owner, index) {
   const cats = categoryMap(c);
   const cat = cats.get(listing.category);
@@ -145,6 +126,7 @@ export function renderListing(c, listing, owner, index) {
   ].slice(0, 4);
 
   const firmCount = liveListings(index).filter((x) => x.userId === listing.userId).length;
+  const rating = index.find((x) => x.userId === listing.userId && x.rating)?.rating;
 
   const searchLink = (extra) => searchPath({ kategori: cat?.slug, ...extra });
   const crumbs = [
@@ -197,6 +179,7 @@ export function renderListing(c, listing, owner, index) {
             <div>
               <a class="vendor-name" href="${esc(firmPath(listing))}">${esc(listing.company)}</a>
               ${owner?.phoneVerified ? `<span class="verified">${icon("check")}Onaylı hesap</span>` : ""}
+              ${rating ? `<a class="vendor-rating" href="${esc(firmPath(listing))}#degerlendirmeler">${ratingBadge(rating)} değerlendirme</a>` : ""}
               ${owner ? `<small>${monthYear(owner.createdAt)} tarihinden beri üye</small>` : ""}
               ${firmCount > 1 ? `<a class="text-link vendor-all" href="${esc(firmPath(listing))}">Firmanın tüm ilanları (${firmCount})${icon("arrow")}</a>` : ""}
             </div>

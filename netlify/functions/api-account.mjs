@@ -27,6 +27,7 @@ import {
   listSentRequests,
   updateRequest,
 } from "../lib/requests.mjs";
+import { REVIEW_ID, deleteUserReviews, publishedReviews, replyReview } from "../lib/reviews.mjs";
 import { sendOtp, smsConfigured, verifyOtp } from "../lib/sms.mjs";
 import { statsFor } from "../lib/stats.mjs";
 import {
@@ -254,6 +255,7 @@ export default async (req, context) => {
       await deleteUserListings(user.id);
       await deleteUserBookings(user.id);
       await deleteUserRequests(user.id);
+      await deleteUserReviews(user.id);
       await deleteUserRecord(user);
       await purgeSite();
       return json({ ok: true }, 200, { "Set-Cookie": clearedUserCookies(req) });
@@ -288,6 +290,18 @@ export default async (req, context) => {
     if (section === "orders" && method === "GET") return json({ orders: await listOrders({ userId: user.id }) });
     if (section === "listings") return await listingRoutes(req, user, content, rest);
     if (section === "bookings") return await bookingRoutes(req, user, rest);
+
+    // Firmanın yayındaki değerlendirmeleri ve yanıt
+    if (section === "reviews") {
+      const [id, action] = rest;
+      if (!id && method === "GET") return json({ reviews: await publishedReviews(user.id) });
+      if (REVIEW_ID.test(id || "") && action === "reply" && method === "POST") {
+        const review = await replyReview(user.id, id, (await readJson(req, 4096)).text);
+        await purgeSite();
+        return json({ review });
+      }
+      return fail(404, "Bulunamadı.");
+    }
 
     if (section === "requests") {
       const [id] = rest;

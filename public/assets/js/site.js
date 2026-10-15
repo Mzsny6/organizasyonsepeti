@@ -289,6 +289,21 @@ if (contactBox) {
   });
 }
 
+// Formlarda adı hatırlamak için (tarayıcı izin vermezse sessizce geçilir)
+function remember(key, value) {
+  try {
+    if (value === undefined) return localStorage.getItem(key) || "";
+    localStorage.setItem(key, value);
+  } catch {
+    return "";
+  }
+}
+
+const authStatus = () =>
+  fetch("/api/v1/auth/status", { credentials: "same-origin" })
+    .then((r) => r.json())
+    .catch(() => ({}));
+
 /* ---------- Teklif talebi ---------- */
 
 const requestForm = $("[data-request-form]");
@@ -298,21 +313,11 @@ if (requestForm && requestButton) {
   const status = $(".form-status", requestForm);
   const phoneField = $("[data-request-phone]", requestForm);
   const submit = $("button[type=submit]", requestForm);
-  const remember = (key, value) => {
-    try {
-      if (value === undefined) return localStorage.getItem(key) || "";
-      localStorage.setItem(key, value);
-    } catch {
-      return "";
-    }
-  };
   // Doğrulanmış numarası olan ziyaretçiden telefon istenmez; bariyer açıksa önce SMS doğrulaması yapılır.
   const open = async () => {
     requestButton.disabled = true;
     try {
-      const auth = await fetch("/api/v1/auth/status", { credentials: "same-origin" })
-        .then((r) => r.json())
-        .catch(() => ({}));
+      const auth = await authStatus();
       let verified = Boolean(auth.verified);
       if (!verified && auth.gate) verified = await requestVerification();
       if (!verified && auth.gate) return;
@@ -348,6 +353,60 @@ if (requestForm && requestButton) {
       requestButton.lastChild.textContent = "Talebiniz iletildi";
       const note = $(".form-status", contactBox || requestButton.parentElement);
       setStatus(note, `${result.company} talebinizi aldı; sizi ${result.phone} numarasından arayacak.`, "success");
+    } catch (err) {
+      if (err.body?.needsVerification) {
+        dialog.close();
+        if (await requestVerification()) open();
+        return;
+      }
+      setStatus(status, err.message, "error");
+    } finally {
+      submit.disabled = false;
+    }
+  });
+}
+
+/* ---------- Firma değerlendirmesi ---------- */
+
+const reviewForm = $("[data-review-form]");
+const reviewButton = $("[data-open-review]");
+if (reviewForm && reviewButton) {
+  const dialog = reviewForm.closest("dialog");
+  const status = $(".form-status", reviewForm);
+  const submit = $("button[type=submit]", reviewForm);
+  // Yorum yazmak için telefon doğrulaması gerekir (sahte yorumları engellemek için).
+  const open = async () => {
+    reviewButton.disabled = true;
+    try {
+      const auth = await authStatus();
+      if (!auth.verified && !(await requestVerification())) return;
+      if (!reviewForm.name.value) reviewForm.name.value = remember("os_name");
+      setStatus(status, "");
+      dialog.showModal();
+    } finally {
+      reviewButton.disabled = false;
+    }
+  };
+  reviewButton.addEventListener("click", open);
+  if (location.hash === "#degerlendir") open();
+  reviewForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!reviewForm.rating.value) return setStatus(status, "Lütfen 1 ile 5 arasında yıldız seçin.", "error");
+    if (reviewForm.name.value.trim().length < 2) return setStatus(status, "Lütfen adınızı yazın.", "error");
+    if (reviewForm.comment.value.trim().length < 20)
+      return setStatus(status, "Lütfen deneyiminizi biraz daha ayrıntılı anlatın (en az 20 karakter).", "error");
+    submit.disabled = true;
+    try {
+      await postJson(`/api/v1/firms/${reviewForm.dataset.firm}/reviews`, Object.fromEntries(new FormData(reviewForm)));
+      remember("os_name", reviewForm.name.value.trim());
+      reviewForm.reset();
+      dialog.close();
+      reviewButton.disabled = true;
+      setStatus(
+        $("[data-review-status]"),
+        "Teşekkürler! Değerlendirmeniz incelendikten sonra yayınlanacak.",
+        "success",
+      );
     } catch (err) {
       if (err.body?.needsVerification) {
         dialog.close();

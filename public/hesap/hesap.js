@@ -547,6 +547,14 @@ function renderClient() {
                 r.seen ? "Firma inceledi" : "Firmaya iletildi",
               ),
             ),
+            r.firmPath
+              ? h(
+                  "a",
+                  { class: "sent-review", href: `${r.firmPath}#degerlendir` },
+                  ic("star"),
+                  `${r.company} firmasını değerlendir`,
+                )
+              : null,
             h(
               "span",
               { class: "muted" },
@@ -649,6 +657,7 @@ function shell(page) {
           tab("ilanlarim", "İlanlarım", "image"),
           tab("yeni-ilan", "Yeni ilan", "plus"),
           tab("talepler", "Talepler", "mail", state.newRequests),
+          tab("yorumlar", "Yorumlar", "star"),
           tab("takvim", "Takvim", "calendar"),
           tab("odemeler", "Ödemeler", "wallet"),
           tab("profil", "Profil", "user"),
@@ -1648,6 +1657,100 @@ async function renderRequests(view) {
   );
 }
 
+/* ---------- Değerlendirmeler ---------- */
+
+const starLine = (n) =>
+  h("span", { class: "rv-stars", "aria-label": `5 üzerinden ${n} puan` }, "★".repeat(n), h("i", {}, "★".repeat(5 - n)));
+
+async function renderReviews(view) {
+  document.title = `Yorumlar | ${state.siteName}`;
+  fill(view, h("h2", { class: "acc-title" }, "Değerlendirmeler"), h("p", { class: "loading" }, "Yükleniyor…"));
+  const { reviews } = await api("/api/account/reviews");
+  const avg = reviews.length ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length : 0;
+  const card = (r) => {
+    const status = statusLine();
+    const reply = h("textarea", {
+      rows: 3,
+      maxlength: 600,
+      value: r.reply || "",
+      placeholder: "Müşterinize teşekkür edin ya da yorumuna açıklama yazın. Yanıtınız firma sayfanızda görünür.",
+    });
+    const save = h(
+      "button",
+      {
+        type: "button",
+        class: "btn btn-light btn-sm",
+        onclick: async () => {
+          save.disabled = true;
+          try {
+            await api(`/api/account/reviews/${r.id}/reply`, { method: "POST", body: { text: reply.value } });
+            setStatus(status, reply.value.trim() ? "Yanıtınız yayınlandı." : "Yanıt kaldırıldı.", "success");
+          } catch (err) {
+            setStatus(status, err.message, "error");
+          } finally {
+            save.disabled = false;
+          }
+        },
+      },
+      "Yanıtı kaydet",
+    );
+    return h(
+      "article",
+      { class: "panel rq-card" },
+      h(
+        "header",
+        { class: "rq-head" },
+        h(
+          "div",
+          {},
+          h("strong", {}, r.authorName),
+          starLine(r.rating),
+          h("small", { class: "muted" }, fmtDate(r.createdAt)),
+        ),
+      ),
+      h("p", { class: "rq-message" }, r.comment),
+      h("label", { class: "rq-note" }, h("span", {}, "Yanıtınız"), reply),
+      status,
+      h("div", { class: "panel-actions" }, save),
+    );
+  };
+  fill(
+    view,
+    h(
+      "div",
+      { class: "acc-toolbar" },
+      h("h2", { class: "acc-title" }, "Değerlendirmeler"),
+      reviews.length
+        ? h(
+            "p",
+            { class: "rv-summary" },
+            h("strong", {}, avg.toLocaleString("tr-TR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })),
+            starLine(Math.round(avg)),
+            `${reviews.length} değerlendirme`,
+          )
+        : null,
+    ),
+    h(
+      "p",
+      { class: "panel-lead rq-lead" },
+      "Size site üzerinden teklif isteyen müşteriler firmanızı değerlendirebilir. Yorumlar ekibimizin onayından sonra firma sayfanızda ve ilanlarınızda yıldız olarak görünür.",
+    ),
+    reviews.length
+      ? h("div", { class: "rq-list" }, reviews.map(card))
+      : h(
+          "div",
+          { class: "empty-state is-compact" },
+          h("span", { class: "empty-icon" }, ic("star")),
+          h("h2", {}, "Henüz yayında değerlendirmeniz yok"),
+          h(
+            "p",
+            {},
+            "Teklif talebi gönderen müşterilerinizden firma sayfanızda değerlendirme yazmalarını isteyebilirsiniz.",
+          ),
+        ),
+  );
+}
+
 /* ---------- Takvim (CRM) ---------- */
 
 const pad = (n) => String(n).padStart(2, "0");
@@ -2165,6 +2268,7 @@ function route() {
   if (page === "odemeler") return renderOrders(view).catch(failed);
   if (page === "takvim") return renderCalendar(view).catch(failed);
   if (page === "talepler") return renderRequests(view).catch(failed);
+  if (page === "yorumlar") return renderReviews(view).catch(failed);
   if (page === "profil") return renderProfile(view);
   // Önce eldeki veriyle çiz, ardından onay/ödeme durumlarını sunucudan tazele.
   renderListings(view);

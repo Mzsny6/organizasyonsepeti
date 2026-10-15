@@ -483,6 +483,7 @@ const NAV = [
   { id: "uyeler", title: "Üyeler", icon: "user" },
   { id: "karaliste", title: "Kara liste", icon: "ban" },
   { id: "sikayetler", title: "Şikâyetler", icon: "flag", badge: () => state.summary?.reports },
+  { id: "degerlendirmeler", title: "Değerlendirmeler", icon: "star", badge: () => state.summary?.pendingReviews },
   { id: "mesajlar", title: "Mesajlar", icon: "mail", badge: () => state.messages.filter((m) => !m.read).length },
   { group: "Site içeriği" },
   { id: "anasayfa", title: "Ana sayfa", icon: "star" },
@@ -599,6 +600,7 @@ function dashboardBody() {
       stat(s.listings.pending, "Onay bekleyen ilan", "ilanlar", s.listings.pending ? "alert" : ""),
       stat(s.awaitingPayments, "Ödeme bekleyen sipariş", "odemeler", s.awaitingPayments ? "alert" : ""),
       stat(s.reports, "Açık şikâyet", "sikayetler", s.reports ? "alert" : ""),
+      stat(s.pendingReviews, "Onay bekleyen yorum", "degerlendirmeler", s.pendingReviews ? "alert" : ""),
       stat(s.unreadMessages, "Okunmamış mesaj", "mesajlar"),
       stat(s.listings.active, "Yayındaki ilan", "ilanlar"),
       stat(s.organizers, "Organizatör", "uyeler"),
@@ -1555,6 +1557,110 @@ function renderReports() {
   return wrap;
 }
 
+/* ---------- Değerlendirmeler ---------- */
+
+const REVIEW_STATUS = {
+  pending: ["Onay bekliyor", "alert"],
+  published: ["Yayında", "ok"],
+  rejected: ["Reddedildi", "muted"],
+};
+let reviewTab = "pending";
+
+function renderReviewsAdmin() {
+  const wrap = h("div", { class: "page-body" }, loading());
+  const load = async () => {
+    const { reviews } = await api("/api/admin/reviews");
+    const count = (status) => reviews.filter((r) => r.status === status).length;
+    const shown = reviews.filter((r) => reviewTab === "all" || r.status === reviewTab);
+    const moderate = async (r, status, message) => {
+      await act(api(`/api/admin/reviews/${r.organizerId}/${r.id}`, { method: "PATCH", body: { status } }), message);
+      load();
+    };
+    fill(
+      wrap,
+      tabs(
+        [
+          ["pending", "Onay bekleyen", count("pending")],
+          ["published", "Yayında", count("published")],
+          ["rejected", "Reddedilen", count("rejected")],
+          ["all", "Tümü", reviews.length],
+        ],
+        reviewTab,
+        (value) => {
+          reviewTab = value;
+          load();
+        },
+      ),
+      shown.length
+        ? h(
+            "div",
+            { class: "mod-list" },
+            shown.map((r) =>
+              h(
+                "article",
+                { class: `card report-card${r.status === "pending" ? " is-open" : ""}` },
+                h(
+                  "div",
+                  { class: "mod-top" },
+                  statusChip(...REVIEW_STATUS[r.status]),
+                  h("small", {}, fmtDate(r.createdAt)),
+                ),
+                h("strong", {}, `${"★".repeat(r.rating)}${"☆".repeat(5 - r.rating)}  ${r.company}`),
+                h("span", {}, `Yazan: ${r.authorName}`),
+                h("p", { class: "message-text" }, r.comment),
+                r.reply ? h("p", { class: "message-text" }, h("strong", {}, "Firma yanıtı: "), r.reply) : null,
+                h(
+                  "div",
+                  { class: "mod-actions" },
+                  r.status !== "published"
+                    ? h(
+                        "button",
+                        {
+                          type: "button",
+                          class: "btn btn-primary btn-sm",
+                          onclick: () => moderate(r, "published", "Değerlendirme yayınlandı."),
+                        },
+                        "Yayınla",
+                      )
+                    : null,
+                  r.status !== "rejected"
+                    ? h(
+                        "button",
+                        {
+                          type: "button",
+                          class: "btn btn-light btn-sm",
+                          onclick: () => moderate(r, "rejected", "Değerlendirme reddedildi."),
+                        },
+                        r.status === "published" ? "Yayından kaldır" : "Reddet",
+                      )
+                    : null,
+                  h(
+                    "button",
+                    {
+                      type: "button",
+                      class: "btn btn-ghost btn-sm danger",
+                      onclick: async () => {
+                        if (!confirm("Değerlendirme kalıcı olarak silinsin mi?")) return;
+                        await act(
+                          api(`/api/admin/reviews/${r.organizerId}/${r.id}`, { method: "DELETE" }),
+                          "Değerlendirme silindi.",
+                        );
+                        load();
+                      },
+                    },
+                    "Sil",
+                  ),
+                ),
+              ),
+            ),
+          )
+        : h("p", { class: "empty" }, "Bu bölümde değerlendirme yok."),
+    );
+  };
+  load().catch((err) => fill(wrap, h("p", { class: "empty" }, err.message)));
+  return wrap;
+}
+
 /* ---------- İçerik ve ayar sayfaları ---------- */
 
 const SECTION_NAMES = {
@@ -1588,6 +1694,12 @@ const PAGES = {
   uyeler: { title: "Üyeler", render: renderUsers },
   karaliste: { title: "Kara liste", render: renderBlacklist },
   sikayetler: { title: "Şikâyetler", description: "Ziyaretçilerin ilan bildirimleri.", render: renderReports },
+  degerlendirmeler: {
+    title: "Değerlendirmeler",
+    description:
+      "Firmalara yazılan yorumlar. Yalnızca firmaya site üzerinden teklif isteyen, telefonu doğrulanmış müşteriler yazabilir; onayladığınız yorumlar firma sayfasında yayınlanır.",
+    render: renderReviewsAdmin,
+  },
   mesajlar: { title: "Mesajlar", description: "İletişim sayfasından gelen mesajlar.", render: renderMessages },
 
   anasayfa: {

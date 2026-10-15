@@ -14,6 +14,8 @@ Site **Netlify** üzerinde çalışır: sayfalar ve API'ler Netlify Functions (N
 - **Teklif İste:** tarih, kişi sayısı, etkinlik türü ve ayrıntılarla organizatöre talep gönderme (SMS doğrulamalı).
 - **Firma sayfası** (`/firma/...`): organizatörün yayındaki tüm ilanları.
 - **Favoriler** (`/favoriler`): kalp simgesiyle ilan kaydetme (üyelik gerekmez, tarayıcıda saklanır).
+- **Değerlendirmeler:** firmaya site üzerinden teklif isteyen, telefonu doğrulanmış müşteriler 1-5 yıldız ve yorum yazar; yönetici onayından sonra firma sayfasında yayınlanır, ilan kartlarında yıldız ortalaması görünür.
+- **Arama motoru sayfaları:** `/hizmet/dugun-salonu`, `/hizmet/dugun-salonu/istanbul`, `/il/istanbul`, `/etkinlik/kina` gibi temiz adresler; altında ilgili il ve hizmet bağlantıları.
 - Ana sayfa vitrini, renkli çerçeve/rozetli ilanlar, kategoride üst sıra (dopingler).
 
 **Organizatör (`/hesap`)**
@@ -26,12 +28,13 @@ Site **Netlify** üzerinde çalışır: sayfalar ve API'ler Netlify Functions (N
 - **Kara liste:** asılsız adres veren / kapıda iptal eden müşteriyi bildirme. Farklı organizatörlerden 2 ihbar alan numara kalıcı engellenir.
 - Telefon, WhatsApp ve teklif talebi istatistikleri.
 - **Şifremi unuttum:** profilde doğrulanan telefona gelen SMS koduyla yeni şifre.
+- **Yorumlar:** firmaya yazılan değerlendirmeleri görme ve yanıtlama.
 
 **Yönetim paneli (`/admin`)**
 
 - İlan onay kuyruğu (ödemesi onaylanmamış ilan yayına alınamaz), reddetme, süre ekleme, doping tanımlama.
 - Havale ödemelerini onaylama, promosyon kodları (indirim %, paket, kullanım limiti, son tarih).
-- Üyeler (engelleme, geçici şifre), kara liste, şikâyetler, iletişim mesajları.
+- Üyeler (engelleme, geçici şifre), kara liste, şikâyetler, değerlendirme onayı, iletişim mesajları.
 - Kategoriler ve kademeleri, etkinlik türleri, ana sayfa metinleri, SSS, fiyatlar, IBAN, güvenlik ayarları (teklif talebinde organizatöre SMS bildirimi dahil), SEO, KVKK ve kullanım koşulları.
 - "Ücretsiz mod": lansman döneminde tüm paketleri ücretsiz yapar.
 
@@ -87,6 +90,8 @@ Değişkenleri ekledikten sonra **Deploys → Trigger deploy**.
 | `GET /api/v1/listings/:id/contact?type=phone\|whatsapp`                  | İletişim bilgisi + tıklama sayacı                      |
 | `POST /api/v1/listings/:id/report`                                       | İlan şikâyeti                                          |
 | `POST /api/v1/listings/:id/request` `{name, eventDate, guests, message}` | Teklif talebi (doğrulanmış numarayla)                  |
+| `GET /api/v1/firms/:id/reviews`                                          | Firmanın yayındaki değerlendirmeleri ve ortalaması     |
+| `POST /api/v1/firms/:id/reviews` `{rating, comment, name}`               | Değerlendirme (firmaya teklif istemiş müşteri)         |
 | `POST /api/v1/promotions/apply` `{code, package, category}`              | İndirim kodunu doğrular, fiyatı hesaplar               |
 | `POST /api/v1/analytics/click` `{listingId, type}`                       | İletişim butonu tıklaması                              |
 | `GET /api/v1/organizer/calendar?listing=:id`                             | İlandaki dolu günler (oturumla: organizatörün takvimi) |
@@ -125,7 +130,7 @@ ADMIN_PASSWORD=deneme123 SMS_TEST_MODE=1 npm run dev:local   # http://localhost:
 npm test
 ```
 
-Uçtan uca testler yerel sunucuyu geçici bir veri klasörüyle başlatır ve kayıt → promosyonlu paket → onay → arama → SMS doğrulama → iletişim → teklif talebi → şifre sıfırlama → kara liste akışlarını dener. GitHub'a her gönderimde aynı testler GitHub Actions'ta çalışır.
+Uçtan uca testler yerel sunucuyu geçici bir veri klasörüyle başlatır ve kayıt → promosyonlu paket → onay → arama ve hizmet sayfaları → SMS doğrulama → iletişim → teklif talebi → değerlendirme → şifre sıfırlama → kara liste akışlarını dener. GitHub'a her gönderimde aynı testler GitHub Actions'ta çalışır.
 
 ## Proje yapısı
 
@@ -135,7 +140,8 @@ public/                      Statik dosyalar
   hesap/                     Organizatör hesabı
   assets/js/                 site.js, ui.js (ortak arayüz), icons.js, locations.js (il/ilçe)
 netlify/functions/
-  page.mjs                   Sayfalar: /, /ilanlar, /ilan/:slug, /firma/:slug, /favoriler, /iletisim, /kvkk, /kullanim-kosullari
+  page.mjs                   Sayfalar: /, /ilanlar, /hizmet/..., /il/..., /etkinlik/..., /ilan/:slug, /firma/:slug,
+                             /favoriler, /iletisim, /kvkk, /kullanim-kosullari
   api-v1.mjs                 PRD REST uç noktaları
   api-account.mjs            Üyelik, şifre sıfırlama, ilanlar, siparişler, teklif talepleri, takvim, kara liste
   api-admin.mjs              Moderasyon, ödemeler, promosyonlar, üyeler, kara liste, şikâyetler
@@ -144,7 +150,7 @@ netlify/functions/
   api-media.mjs / media.mjs  Fotoğraf yükleme ve sunma
   api-messages.mjs           İletişim formu
   sitemap.mjs, daily.mjs     Site haritası; günlük önbellek ve eski talep temizliği
-netlify/lib/                 Veri katmanı (listings, users, orders, promos, requests, bookings, blacklist, sms, stats…)
+netlify/lib/                 Veri katmanı (listings, users, orders, promos, requests, reviews, bookings, blacklist, sms…)
 netlify/lib/render/          Sunucu tarafı HTML şablonları
 scripts/dev-server.mjs       Netlify'sız yerel sunucu
 tests/                       Birim ve uçtan uca API testleri (npm test)

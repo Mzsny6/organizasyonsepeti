@@ -9,6 +9,8 @@
 //   GET  /api/v1/listings/:id/contact    ?type=phone|whatsapp      İletişim bilgisi (+ tıklama sayacı)
 //   POST /api/v1/listings/:id/report     { reason, message }       İlan şikâyeti
 //   POST /api/v1/listings/:id/request    { name, eventDate, guests, event, message, phone? }  Teklif talebi
+//   GET  /api/v1/firms/:id/reviews                                 Firmanın yayındaki değerlendirmeleri
+//   POST /api/v1/firms/:id/reviews       { rating, comment, name } Değerlendirme (teklif istemiş, doğrulanmış müşteri)
 //   POST /api/v1/promotions/apply        { code, package, category } İndirimli fiyatı hesaplar
 //   POST /api/v1/analytics/click         { listingId, type }       İletişim butonu tıklaması
 //   GET  /api/v1/organizer/calendar      ?listing=:id              İlandaki dolu günler (ya da kendi takviminiz)
@@ -24,6 +26,7 @@ import { quote } from "../lib/orders.mjs";
 import { priceTable } from "../lib/pricing.mjs";
 import { parseSearch } from "../lib/render/search.mjs";
 import { createRequest } from "../lib/requests.mjs";
+import { createReview, publishedReviews, ratingSummary } from "../lib/reviews.mjs";
 import { sendNotice, sendOtp, smsConfigured, verifyOtp } from "../lib/sms.mjs";
 import { CLICK_TYPES, countClick } from "../lib/stats.mjs";
 import {
@@ -139,6 +142,43 @@ async function sendRequest(req, context, listing, content) {
   return json({ ok: true, company: listing.company, phone: maskPhone(mobile) }, 201);
 }
 
+async function firmReviews(req, id) {
+  const organizer = await getUser(id);
+  if (!organizer || (organizer.role || "organizer") !== "organizer" || organizer.status === "banned") {
+    return fail(404, "Firma bulunamadı.");
+  }
+  if (req.method === "GET") {
+    const [reviews, summary] = await Promise.all([publishedReviews(organizer.id), ratingSummary()]);
+    return json({
+      summary: summary[organizer.id] || null,
+      reviews: reviews.map(({ id: reviewId, authorName, rating, comment, reply, replyAt, createdAt }) => ({
+        id: reviewId,
+        authorName,
+        rating,
+        comment,
+        reply,
+        replyAt,
+        createdAt,
+      })),
+    });
+  }
+  if (req.method === "POST") {
+    const author = await getSessionUser(req);
+    if (!author?.phoneVerified) {
+      return json({ error: "Değerlendirme yazmak için telefon numaranızı doğrulayın.", needsVerification: true }, 403);
+    }
+    if (await isBlacklisted(author.verifiedPhone))
+      return fail(403, "Telefon numaranız kötüye kullanım bildirimleri nedeniyle engellenmiştir.");
+    if (await isLimited("review", author.id, 5, DAY)) return fail(429, "Bugün için değerlendirme sınırına ulaştınız.");
+    const body = await readJson(req, 4096);
+    if (body.website) return json({ ok: true }, 201);
+    await createReview(organizer, author, body);
+    await countHit("review", author.id, DAY);
+    return json({ ok: true, status: "pending" }, 201);
+  }
+  return fail(404, "Bulunamadı.");
+}
+
 async function listingRoute(req, context, id, action, content) {
   const listing = await getListing(id);
   if (!listing || !isLive(listing)) return fail(404, "İlan bulunamadı ya da yayında değil.");
@@ -229,6 +269,8 @@ export default async (req, context) => {
       });
     }
     if (resource === "listings" && id) return await listingRoute(req, context, id, action, content);
+
+    if (resource === "firms" && id && action === "reviews") return await firmReviews(req, id);
 
     if (resource === "promotions" && id === "apply" && req.method === "POST") {
       const body = await readJson(req, 1024);

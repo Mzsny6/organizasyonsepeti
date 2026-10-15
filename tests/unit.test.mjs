@@ -6,6 +6,7 @@ import { firmPath, isLive, parseFirmParam, parseListingParam, searchIndex } from
 import { applyDiscount, packagePrice } from "../netlify/lib/pricing.mjs";
 import { cityFromSlug, citySlug, searchPath } from "../netlify/lib/render/urls.mjs";
 import { validateRequest } from "../netlify/lib/requests.mjs";
+import { displayName, validateReview } from "../netlify/lib/reviews.mjs";
 import { foldText, slugify } from "../netlify/lib/text.mjs";
 import { formatPhone, maskPhone, normalizeMobile, validateTcVkn } from "../netlify/lib/users.mjs";
 
@@ -125,4 +126,16 @@ test("arama adresleri: temiz adresler ve /ilanlar", () => {
   assert.equal(searchPath({}), "/ilanlar");
   assert.equal(cityFromSlug(citySlug("Çanakkale")), "Çanakkale");
   assert.equal(cityFromSlug("atlantis"), "");
+});
+
+test("değerlendirme doğrulaması ve görünen ad", () => {
+  assert.equal(displayName("mehmet  ali kaya"), "mehmet K.");
+  assert.equal(displayName("Zeynep"), "Zeynep");
+  assert.equal(displayName("Ayşe ışık"), "Ayşe I.");
+  const ok = validateReview({ rating: "5", name: "Ayşe Yılmaz", comment: "Her şey için çok teşekkürler, harikaydı!" });
+  assert.equal(ok.rating, 5);
+  assert.equal(ok.authorName, "Ayşe Y.");
+  assert.throws(() => validateReview({ rating: 0, name: "Ali", comment: "Yeterince uzun bir yorum metni." }));
+  assert.throws(() => validateReview({ rating: 6, name: "Ali", comment: "Yeterince uzun bir yorum metni." }));
+  assert.throws(() => validateReview({ rating: 3, name: "Ali", comment: "kısa" }));
 });

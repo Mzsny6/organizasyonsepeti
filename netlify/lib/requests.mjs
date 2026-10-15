@@ -4,7 +4,7 @@
 import { getStore } from "@netlify/blobs";
 import { randomBytes } from "node:crypto";
 import { HttpError } from "./http.mjs";
-import { listingPath } from "./listings.mjs";
+import { firmPath, listingPath } from "./listings.mjs";
 import { formatPhone } from "./users.mjs";
 
 const store = () => getStore({ name: "requests", consistency: "strong" });
@@ -75,6 +75,8 @@ export async function createRequest(listing, { sender, mobile, phoneVerified }, 
     listingId: listing.id,
     listingTitle: listing.title,
     listingPath: listingPath(listing),
+    organizerId: listing.userId,
+    company: listing.company,
     senderId: sender?.id || "",
     ...data,
     phone: formatPhone(mobile),
@@ -95,6 +97,11 @@ export async function createRequest(listing, { sender, mobile, phoneVerified }, 
 }
 
 export const listRequests = (organizerId) => read(`o/${organizerId}`);
+
+// Üye bu organizatöre site üzerinden teklif talebi göndermiş mi? (değerlendirme yazabilmek için)
+export async function hasRequested(senderId, organizerId) {
+  return (await read(`c/${senderId}`)).some((p) => p.organizerId === organizerId);
+}
 
 export async function countNewRequests(organizerId) {
   return (await listRequests(organizerId)).filter((r) => r.status === "new").length;
@@ -131,12 +138,14 @@ export async function listSentRequests(senderId) {
   }
   const lists = new Map(await Promise.all([...byOrganizer].map(async ([id, list]) => [id, await list])));
   return pointers
-    .map((p) => lists.get(p.organizerId)?.find((r) => r.id === p.id))
-    .filter(Boolean)
-    .map((r) => ({
+    .map((p) => [p.organizerId, lists.get(p.organizerId)?.find((r) => r.id === p.id)])
+    .filter(([, r]) => r)
+    .map(([organizerId, r]) => ({
       id: r.id,
       listingTitle: r.listingTitle,
       listingPath: r.listingPath,
+      company: r.company || "",
+      firmPath: r.company ? firmPath({ company: r.company, userId: organizerId }) : "",
       eventDate: r.eventDate,
       guests: r.guests,
       message: r.message,

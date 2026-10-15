@@ -24,9 +24,10 @@ import { ORDER_ID, cancelOrder, confirmOrder, listOrders } from "../lib/orders.m
 import { DOPINGS } from "../lib/pricing.mjs";
 import { deletePromo, listPromos, savePromo } from "../lib/promos.mjs";
 import { deleteUserRequests } from "../lib/requests.mjs";
+import { REVIEW_ID, allReviews, deleteReview, deleteUserReviews, moderateReview } from "../lib/reviews.mjs";
 import { smsConfigured, smsTestMode } from "../lib/sms.mjs";
 import { statsFor } from "../lib/stats.mjs";
-import { deleteUserRecord, getUser, listUsers, publicUser, saveUser, setUserPassword } from "../lib/users.mjs";
+import { USER_ID, deleteUserRecord, getUser, listUsers, publicUser, saveUser, setUserPassword } from "../lib/users.mjs";
 
 const REPORT_ID = /^\d{13}-[a-f0-9]{10}$/;
 
@@ -37,13 +38,14 @@ function temporaryPassword() {
 }
 
 async function summary() {
-  const [index, users, reports, messages, orders, blacklist] = await Promise.all([
+  const [index, users, reports, messages, orders, blacklist, reviews] = await Promise.all([
     readIndex(),
     listUsers(),
     listReports(),
     messageStore().list(),
     listOrders(),
     listBlacklist(),
+    allReviews(),
   ]);
   const unread = await Promise.all(messages.blobs.slice(-200).map((b) => messageStore().get(b.key, { type: "json" })));
   const now = new Date().toISOString();
@@ -61,6 +63,7 @@ async function summary() {
     awaitingPayments: orders.filter((o) => o.status === "awaiting").length,
     revenue: orders.filter((o) => o.status === "paid").reduce((sum, o) => sum + o.amount, 0),
     blocked: blacklist.filter((b) => b.blocked).length,
+    pendingReviews: reviews.filter((r) => r.status === "pending").length,
     sms: { configured: smsConfigured(), testMode: smsTestMode() },
   });
 }
@@ -147,6 +150,7 @@ async function usersRoute(req, id, action) {
     await deleteUserListings(user.id);
     await deleteUserBookings(user.id);
     await deleteUserRequests(user.id);
+    await deleteUserReviews(user.id);
     await deleteUserRecord(user);
     await purgeSite();
     return json({ ok: true });
@@ -204,6 +208,24 @@ async function reportsRoute(req, id) {
   return fail(404, "Bulunamadı.");
 }
 
+// Değerlendirmeler: /api/admin/reviews[/<organizatör>/<değerlendirme>]
+async function reviewsRoute(req, organizerId, id) {
+  if (!organizerId && req.method === "GET") return json({ reviews: await allReviews() });
+  if (!USER_ID.test(organizerId || "") || !REVIEW_ID.test(id || "")) return fail(404, "Değerlendirme bulunamadı.");
+  if (req.method === "PATCH") {
+    const { status } = await readJson(req, 512);
+    const review = await moderateReview(organizerId, id, status);
+    await purgeSite();
+    return json({ review });
+  }
+  if (req.method === "DELETE") {
+    await deleteReview(organizerId, id);
+    await purgeSite();
+    return json({ ok: true });
+  }
+  return fail(404, "Bulunamadı.");
+}
+
 export default async (req) => {
   try {
     await requireAdmin(req);
@@ -215,6 +237,7 @@ export default async (req) => {
     if (resource === "promos") return await promosRoute(req, id ? decodeURIComponent(id) : "");
     if (resource === "blacklist") return await blacklistRoute(req, id);
     if (resource === "reports") return await reportsRoute(req, id);
+    if (resource === "reviews") return await reviewsRoute(req, id, action);
     return fail(404, "Bulunamadı.");
   } catch (err) {
     return handleError(err);
