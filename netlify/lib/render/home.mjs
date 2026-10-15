@@ -1,6 +1,6 @@
 // Ana sayfa
 import { CITY_NAMES } from "../../../public/assets/js/locations.js";
-import { countBy, searchIndex } from "../listings.mjs";
+import { countBy, dopingActive, liveListings, searchIndex } from "../listings.mjs";
 import { categoryMap, esc, icon, imageUrl, layout, listingCard, paragraphs, safeUrl, sectionHead } from "./layout.mjs";
 
 const BIG_CITIES = [
@@ -67,22 +67,52 @@ export function heroArt() {
 }
 
 // Ana sayfadaki ve ilan listesindeki arama formu. İlçe seçenekleri tarayıcıda il seçilince doldurulur.
-export function searchForm(c, values = {}, { compact = false, hidden = {} } = {}) {
+export function searchForm(c, values = {}, { compact = false, extended = false, hidden = {} } = {}) {
   const option = (value, label, selected) =>
     `<option value="${esc(value)}"${selected ? " selected" : ""}>${esc(label)}</option>`;
+  const tierLabel = {
+    1: "Mekân, ses-ışık ve büyük organizasyon",
+    2: "Catering, fotoğraf, müzik ve dekorasyon",
+    3: "Çocuk eğlencesi ve animasyon",
+  };
+  const categoryOptions = [1, 2, 3]
+    .map((tier) => {
+      const list = c.categories.filter((cat) => cat.tier === tier);
+      return list.length
+        ? `<optgroup label="${esc(tierLabel[tier])}">${list.map((cat) => option(cat.slug, cat.name, values.kategori === cat.slug)).join("")}</optgroup>`
+        : "";
+    })
+    .join("");
   return `<form class="search-card${compact ? " is-compact" : ""}" action="/ilanlar" method="get" role="search">
     <label class="sf-field sf-q"><span>Ne arıyorsunuz?</span>
-      <span class="sf-input">${icon("search")}<input name="q" value="${esc(values.q || "")}" placeholder="Örn. balon süsleme, kına" maxlength="80"></span>
+      <span class="sf-input">${icon("search")}<input name="q" value="${esc(values.q || "")}" placeholder="Örn. düğün salonu, palyaço" maxlength="80"></span>
     </label>
-    <label class="sf-field"><span>Kategori</span>
-      <select name="kategori">${option("", "Tüm kategoriler")}${c.categories.map((cat) => option(cat.slug, cat.name, values.kategori === cat.slug)).join("")}</select>
+    <label class="sf-field"><span>Hizmet türü</span>
+      <select name="kategori">${option("", "Tüm hizmetler")}${categoryOptions}</select>
     </label>
+    ${
+      extended
+        ? `<label class="sf-field"><span>Etkinlik</span>
+      <select name="etkinlik">${option("", "Tüm etkinlikler")}${c.events.map((e) => option(e.slug, e.name, values.etkinlik === e.slug)).join("")}</select>
+    </label>`
+        : ""
+    }
     <label class="sf-field"><span>İl</span>
       <select name="il" data-city-select>${option("", "Tüm Türkiye")}${CITY_NAMES.map((city) => option(city, city, values.il === city)).join("")}</select>
     </label>
     <label class="sf-field"><span>İlçe</span>
       <select name="ilce" data-district-select data-selected="${esc(values.ilce || "")}" ${values.il ? "" : "disabled"}>${option("", "Tüm ilçeler")}</select>
     </label>
+    ${
+      extended
+        ? `<fieldset class="sf-field sf-budget"><span>Bütçe (₺)</span>
+      <div class="sf-range">
+        <input name="min" inputmode="numeric" placeholder="En az" value="${values.min || ""}" aria-label="En az fiyat">
+        <input name="max" inputmode="numeric" placeholder="En çok" value="${values.max || ""}" aria-label="En çok fiyat">
+      </div>
+    </fieldset>`
+        : ""
+    }
     ${Object.entries(hidden)
       .filter(([, v]) => v)
       .map(([k, v]) => `<input type="hidden" name="${esc(k)}" value="${esc(v)}">`)
@@ -102,8 +132,8 @@ function hero(c, total) {
         ${hero.subtitle ? `<p class="lead reveal">${esc(hero.subtitle)}</p>` : ""}
         <ul class="hero-facts reveal">
           ${total ? `<li><strong>${total.toLocaleString("tr-TR")}</strong> yayında ilan</li>` : ""}
-          <li><strong>81</strong> ilde hizmet</li>
-          <li><strong>Ücretsiz</strong> ilan verme</li>
+          <li><strong>81</strong> ilde organizatör</li>
+          <li><strong>%0</strong> komisyon</li>
         </ul>
       </div>
       <div class="hero-visual reveal">
@@ -112,16 +142,36 @@ function hero(c, total) {
         </div>
         <span class="orb orb-1"></span><span class="orb orb-2"></span><span class="orb orb-3"></span>
         <div class="float-card fc-1">${icon("shield")}<span>Kontrol edilen ilanlar</span></div>
-        <div class="float-card fc-2">${icon("phone")}<span>Firmaya doğrudan ulaşın</span></div>
+        <div class="float-card fc-2">${icon("phone")}<span>Komisyonsuz, doğrudan iletişim</span></div>
       </div>
     </div>
     <div class="container hero-search reveal">${searchForm(c)}</div>
   </section>`;
 }
 
+function events(c, counts) {
+  if (!c.events.length) return "";
+  return `<section class="section section-events" id="etkinlikler">
+    <div class="container">
+      ${sectionHead(c.sections.events)}
+      <div class="event-row">
+        ${c.events
+          .map(
+            (e) => `<a class="event-tile" href="/ilanlar?etkinlik=${esc(e.slug)}">
+              <span class="et-icon">${icon(e.icon)}</span>
+              <span class="et-name">${esc(e.name)}</span>
+              ${counts[e.id] ? `<span class="et-count">${counts[e.id]} ilan</span>` : ""}
+            </a>`,
+          )
+          .join("")}
+      </div>
+    </div>
+  </section>`;
+}
+
 function categories(c, counts) {
   if (!c.categories.length) return "";
-  return `<section class="section" id="kategoriler">
+  return `<section class="section section-tint" id="hizmetler">
     <div class="container">
       ${sectionHead(c.sections.categories)}
       <div class="category-grid">
@@ -134,6 +184,26 @@ function categories(c, counts) {
             </a>`,
           )
           .join("")}
+      </div>
+    </div>
+  </section>`;
+}
+
+// Ana Sayfa Vitrini dopingi: yatay kaydırmalı alan
+function showcase(c, items) {
+  if (!items.length) return "";
+  const cats = categoryMap(c);
+  return `<section class="section" id="vitrin">
+    <div class="container">
+      <header class="section-head is-left">
+        <div>${c.sections.featured.eyebrow ? `<p class="eyebrow">${esc(c.sections.featured.eyebrow)}</p>` : ""}<h2>${esc(c.sections.featured.title)}</h2></div>
+        <div class="slider-nav">
+          <button type="button" class="icon-btn slider-prev" aria-label="Önceki">${icon("chevron")}</button>
+          <button type="button" class="icon-btn slider-next" aria-label="Sonraki">${icon("chevron")}</button>
+        </div>
+      </header>
+      <div class="showcase-track" data-slider tabindex="0" aria-label="Vitrin ilanları">
+        ${items.map((x) => listingCard(x, cats, { showcase: true })).join("")}
       </div>
     </div>
   </section>`;
@@ -155,8 +225,8 @@ function emptyListings() {
       <div class="empty-state">
         <span class="empty-icon">${icon("balloon")}</span>
         <h2>İlk ilanlar çok yakında burada</h2>
-        <p>Organizasyon firması mısınız? Ücretsiz üye olun, ilanınızı ilk yayınlayanlardan olun.</p>
-        <a class="btn btn-primary" href="/hesap/#yeni-ilan">${icon("plus")}Ücretsiz İlan Ver</a>
+        <p>Organizatör müsünüz? Üye olun, ilanınızı ilk yayınlayanlardan olun.</p>
+        <a class="btn btn-action" href="/hesap/#yeni-ilan">${icon("plus")}İlan Ver</a>
       </div>
     </div>
   </section>`;
@@ -167,7 +237,7 @@ function cities(c, counts) {
     .sort((a, b) => b[1] - a[1])
     .map(([city]) => city);
   const list = [...new Set([...ranked, ...BIG_CITIES])].slice(0, 12);
-  return `<section class="section" id="sehirler">
+  return `<section class="section section-tint" id="sehirler">
     <div class="container">
       ${sectionHead(c.sections.cities)}
       <div class="city-chips">
@@ -185,7 +255,7 @@ function cities(c, counts) {
 
 function steps(c) {
   if (!c.steps.length) return "";
-  return `<section class="section section-tint" id="nasil-calisir">
+  return `<section class="section" id="nasil-calisir">
     <div class="container">
       ${sectionHead(c.sections.process)}
       <ol class="steps count-${Math.min(c.steps.length, 4)}">
@@ -214,8 +284,8 @@ function vendor(c) {
           ${v.text ? `<p class="vendor-text">${esc(v.text)}</p>` : ""}
           ${c.vendorPoints.length ? `<ul class="vendor-points">${c.vendorPoints.map((p) => `<li>${icon("check")}<span>${esc(p)}</span></li>`).join("")}</ul>` : ""}
           <div class="vendor-actions">
-            <a class="btn btn-light" href="/hesap/#yeni-ilan">${icon("plus")}Ücretsiz İlan Ver</a>
-            <a class="btn btn-ghost-light" href="/hesap/">Firma girişi</a>
+            <a class="btn btn-action" href="/hesap/#yeni-ilan">${icon("plus")}İlan Ver</a>
+            <a class="btn btn-ghost-light" href="/hesap/">Organizatör girişi</a>
           </div>
         </div>
         <div class="vendor-art" aria-hidden="true">${heroArt()}</div>
@@ -245,19 +315,20 @@ function faq(c) {
 
 export function renderHome(c, index) {
   const s = c.settings;
-  const active = index.filter((x) => x.status === "active");
-  const featured = searchIndex(index, { sort: "yeni" })
-    .items.filter((x) => x.featured)
-    .slice(0, 8);
+  const live = liveListings(index);
+  const showcaseItems = live
+    .filter((x) => dopingActive(x, "showcase"))
+    .sort((a, b) => (a.dopings.showcase < b.dopings.showcase ? 1 : -1))
+    .slice(0, 16);
   const recent = searchIndex(index, { sort: "yeni" }).items.slice(0, 8);
   const body = [
-    hero(c, active.length),
+    hero(c, live.length),
+    events(c, countBy(index, "events")),
+    showcase(c, showcaseItems),
     categories(c, countBy(index, "category")),
-    featured.length ? listingSection(c, c.sections.featured, featured, { id: "vitrin" }) : "",
     recent.length
       ? listingSection(c, c.sections.recent, recent, {
           id: "son-ilanlar",
-          tint: true,
           link: { href: "/ilanlar?sirala=yeni", label: "Tüm ilanlar" },
         })
       : emptyListings(),

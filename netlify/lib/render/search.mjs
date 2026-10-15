@@ -1,6 +1,6 @@
 // İlan listesi ve arama sayfası (/ilanlar)
 import { isValidLocation } from "../../../public/assets/js/locations.js";
-import { SORTS, searchIndex } from "../listings.mjs";
+import { SORTS, formatPrice, searchIndex } from "../listings.mjs";
 import { searchForm } from "./home.mjs";
 import { categoryMap, esc, icon, layout, listingCard, pageHero } from "./layout.mjs";
 
@@ -8,12 +8,18 @@ import { categoryMap, esc, icon, layout, listingCard, pageHero } from "./layout.
 export function parseSearch(c, params) {
   const get = (k) => String(params.get(k) || "").trim();
   const category = c.categories.find((cat) => cat.slug === get("kategori"));
+  const event = c.events.find((e) => e.slug === get("etkinlik"));
+  const money = (k) => Math.min(99_999_999, Number(get(k).replace(/\D/g, "")) || 0);
   const il = isValidLocation(get("il")) ? get("il") : "";
   const ilce = il && get("ilce") && isValidLocation(il, get("ilce")) ? get("ilce") : "";
   return {
     q: get("q").slice(0, 80),
     kategori: category?.slug || "",
     category,
+    etkinlik: event?.slug || "",
+    event,
+    min: money("min"),
+    max: money("max"),
     il,
     ilce,
     sirala: SORTS[get("sirala")] ? get("sirala") : "onerilen",
@@ -24,7 +30,7 @@ export function parseSearch(c, params) {
 function queryString(values, overrides = {}) {
   const merged = { ...values, ...overrides };
   const params = new URLSearchParams();
-  for (const key of ["q", "kategori", "il", "ilce", "sirala", "sayfa"]) {
+  for (const key of ["q", "kategori", "etkinlik", "il", "ilce", "min", "max", "sirala", "sayfa"]) {
     const v = merged[key];
     if (!v || (key === "sirala" && v === "onerilen") || (key === "sayfa" && Number(v) <= 1)) continue;
     params.set(key, v);
@@ -35,7 +41,7 @@ function queryString(values, overrides = {}) {
 
 function pageTitle(v) {
   const place = [v.il, v.ilce].filter(Boolean).join(" ");
-  const what = v.category ? v.category.name : "Organizasyon";
+  const what = [v.event?.name, v.category ? v.category.name : v.event ? "" : "Organizatör"].filter(Boolean).join(" ");
   if (v.q) return `"${v.q}" araması`;
   return `${place ? `${place} ` : ""}${what} İlanları`;
 }
@@ -66,6 +72,15 @@ function activeChips(v) {
   const chips = [
     v.q && [`"${v.q}"`, { q: "" }],
     v.category && [v.category.name, { kategori: "" }],
+    v.event && [v.event.name, { etkinlik: "" }],
+    (v.min || v.max) && [
+      v.min && v.max
+        ? `${formatPrice(v.min)} – ${formatPrice(v.max)}`
+        : v.min
+          ? `${formatPrice(v.min)} üzeri`
+          : `${formatPrice(v.max)} altı`,
+      { min: "", max: "" },
+    ],
     v.il && [v.il, { il: "", ilce: "" }],
     v.ilce && [v.ilce, { ilce: "" }],
   ].filter(Boolean);
@@ -85,6 +100,9 @@ export function renderSearch(c, index, params) {
   const v = parseSearch(c, params);
   const result = searchIndex(index, {
     category: v.category?.id,
+    event: v.event?.id,
+    min: v.min,
+    max: v.max,
     city: v.il,
     district: v.ilce,
     q: v.q,
@@ -96,7 +114,7 @@ export function renderSearch(c, index, params) {
   const title = pageTitle(v);
   const crumbs = [
     ["Ana sayfa", "/"],
-    ["İlanlar", v.category || v.il || v.q ? "/ilanlar" : ""],
+    ["İlanlar", v.category || v.event || v.il || v.q ? "/ilanlar" : ""],
   ];
   if (v.category) crumbs.push([v.category.name, v.il || v.q ? queryString({ kategori: v.kategori }) : ""]);
   if (v.il) crumbs.push([v.ilce ? `${v.il} / ${v.ilce}` : v.il, ""]);
@@ -120,14 +138,14 @@ export function renderSearch(c, index, params) {
       <aside class="filters" aria-label="Filtreler">
         <button class="btn btn-light filters-toggle" type="button" aria-expanded="false" aria-controls="filtreler">${icon("filter")}Filtrele</button>
         <div class="filters-panel" id="filtreler">
-          ${searchForm(c, v, { compact: true, hidden: { sirala: v.sirala === "onerilen" ? "" : v.sirala } })}
+          ${searchForm(c, v, { compact: true, extended: true, hidden: { sirala: v.sirala === "onerilen" ? "" : v.sirala } })}
         </div>
       </aside>
       <div class="results">
         <div class="results-bar">
           ${activeChips(v)}
           <form class="sort-form" action="/ilanlar" method="get">
-            ${["q", "kategori", "il", "ilce"].map((k) => (v[k] ? `<input type="hidden" name="${k}" value="${esc(v[k])}">` : "")).join("")}
+            ${["q", "kategori", "etkinlik", "il", "ilce", "min", "max"].map((k) => (v[k] ? `<input type="hidden" name="${k}" value="${esc(v[k])}">` : "")).join("")}
             <label><span>Sırala</span>
               <select name="sirala" data-autosubmit>${Object.entries(SORTS)
                 .map(([k, label]) => `<option value="${k}"${k === v.sirala ? " selected" : ""}>${label}</option>`)
@@ -141,13 +159,13 @@ export function renderSearch(c, index, params) {
     </div>
   </section>`;
 
-  const hasFilters = v.q || v.category || v.il;
+  const hasFilters = v.q || v.category || v.event || v.il;
   return layout(c, {
     title: `${title} | ${c.settings.siteName}`,
-    description: `${title}: ${result.total} ilan. Organizasyon firmalarının ilanlarını inceleyin, fiyatları karşılaştırın ve doğrudan iletişime geçin.`,
-    path: queryString({ kategori: v.kategori, il: v.il, ilce: v.ilce, sayfa: v.sayfa }),
+    description: `${title}: ${result.total} ilan. Organizatörlerin ilanlarını inceleyin, fiyatları karşılaştırın ve komisyonsuz, doğrudan iletişime geçin.`,
+    path: queryString({ kategori: v.kategori, etkinlik: v.etkinlik, il: v.il, ilce: v.ilce, sayfa: v.sayfa }),
     body,
     // Serbest metin aramaları ve sıralama varyasyonları arama motorlarında ayrı sayfa olarak dizinlenmez.
-    noindex: Boolean(v.q) || v.sirala !== "onerilen" || (hasFilters && !result.total),
+    noindex: Boolean(v.q || v.min || v.max) || v.sirala !== "onerilen" || (hasFilters && !result.total),
   });
 }

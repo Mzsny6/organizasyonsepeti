@@ -73,7 +73,6 @@ export const DEFAULT_CONTENT = {
     siteName: "Organizasyon Sepeti",
     tagline: "Organizasyon firmalarını keşfedin, karşılaştırın, doğrudan ulaşın.",
     siteUrl: "https://organizasyonsepeti.net",
-    theme: "rose",
     phone: "",
     whatsapp: "",
     whatsappMessage: "Merhaba, Organizasyon Sepeti hakkında bilgi almak istiyorum.",
@@ -90,83 +89,101 @@ export const DEFAULT_CONTENT = {
   },
 
   hero: {
-    eyebrow: "Türkiye'nin organizasyon ilan sitesi",
-    title: "Hayalinizdeki organizasyon",
-    highlight: "bir tık uzağınızda",
+    eyebrow: "Türkiye'nin organizasyon pazarı",
+    title: "Etkinliğiniz için",
+    highlight: "doğru organizatör burada",
     subtitle:
-      "Doğum günü, nişan, kına, düğün ve daha fazlası için şehrinizdeki organizasyon firmalarını bulun, ilanları karşılaştırın ve doğrudan iletişime geçin.",
+      "Düğün salonundan palyaçoya, catering'den ses-ışığa; etkinliğiniz için ihtiyacınız olan organizatörleri bulun, ilanları karşılaştırın ve komisyonsuz, doğrudan iletişime geçin.",
     image: "",
   },
 
   sections: {
-    categories: { eyebrow: "Kategoriler", title: "Ne kutluyorsunuz?", text: "" },
-    featured: { eyebrow: "Vitrin", title: "Öne çıkan ilanlar", text: "" },
+    events: { eyebrow: "Etkinlikler", title: "Ne kutluyorsunuz?", text: "" },
+    categories: { eyebrow: "Hizmetler", title: "Aradığınız organizatörü seçin", text: "" },
+    featured: { eyebrow: "Vitrin", title: "Öne çıkan organizatörler", text: "" },
     recent: { eyebrow: "Yeni ilanlar", title: "Son eklenen ilanlar", text: "" },
-    cities: { eyebrow: "Şehirler", title: "Şehrinizdeki organizasyon firmaları", text: "" },
-    process: { eyebrow: "Nasıl çalışır?", title: "Üç adımda organizasyon firmanızı bulun", text: "" },
+    cities: { eyebrow: "Şehirler", title: "Şehrinizdeki organizatörler", text: "" },
+    process: { eyebrow: "Nasıl çalışır?", title: "Üç adımda organizatörünüzü bulun", text: "" },
     vendor: {
-      eyebrow: "Organizasyon firmaları için",
-      title: "İlanınızı ücretsiz yayınlayın",
-      text: "Hizmetlerinizi organizasyon arayan kişilere ulaştırın. Üye olun, fotoğraflı ilanınızı oluşturun; müşterileriniz size doğrudan ulaşsın.",
+      eyebrow: "Organizatörler için",
+      title: "İşinizi büyütün, komisyon ödemeyin",
+      text: "İlanınızı yayınlayın, müşterileriniz sizi doğrudan arasın. Randevularınızı takviminizden yönetin, vitrin ve üst sıra dopingleriyle öne çıkın.",
     },
     faq: { eyebrow: "Sıkça sorulanlar", title: "Merak ettikleriniz", text: "" },
   },
 
   vendorPoints: [
-    "Üyelik ve ilan vermek tamamen ücretsiz",
-    "Fotoğraflı, detaylı ilan sayfası",
-    "Müşteriler sizi doğrudan telefon ve WhatsApp'tan arar",
-    "İlanlarınızı dilediğiniz zaman güncelleyin",
+    "Komisyon yok: müşterilerinizle doğrudan anlaşın",
+    "Hizmet türünüze göre uygun fiyatlı ilan paketleri",
+    "Vitrin ve kategori üst sıra dopingleriyle öne çıkın",
+    "Randevu takvimi ve çifte rezervasyon uyarısı",
   ],
 
+  // Organizatör (hizmet veren) türleri. tier: ilan paketi fiyat kademesi (1 üst, 2 orta, 3 mikro).
   categories: [
-    { id: "dogum-gunu", slug: "dogum-gunu", name: "Doğum Günü", icon: "cake" },
-    { id: "nisan-soz", slug: "nisan-soz", name: "Nişan & Söz", icon: "ring" },
-    { id: "kina-gecesi", slug: "kina-gecesi", name: "Kına Gecesi", icon: "moon" },
+    { id: "dugun-salonu", slug: "dugun-salonu", name: "Düğün Salonu", icon: "building", tier: 1 },
+    { id: "davet-evi", slug: "davet-evi", name: "Davet Evi", icon: "home", tier: 1 },
+    { id: "kina-konagi", slug: "kina-konagi", name: "Kına Konağı", icon: "moon", tier: 1 },
+    { id: "tekne-yat", slug: "tekne-yat", name: "Tekne & Yat", icon: "boat", tier: 1 },
+    { id: "ses-isik", slug: "ses-isik", name: "Ses & Işık Sistemleri", icon: "speaker", tier: 1 },
+    { id: "catering", slug: "catering", name: "Catering & İkram", icon: "utensils", tier: 2 },
+    { id: "fotografci", slug: "fotografci", name: "Etkinlik Fotoğrafçısı", icon: "camera", tier: 2 },
+    { id: "bando", slug: "bando", name: "Bando", icon: "drum", tier: 2 },
+    { id: "dekorasyon", slug: "dekorasyon", name: "Dekorasyon & Balon Süsleme", icon: "balloon", tier: 2 },
+    { id: "muzik-grubu", slug: "muzik-grubu", name: "Müzik Grubu & DJ", icon: "music", tier: 2 },
+    { id: "palyaco", slug: "palyaco", name: "Palyaço", icon: "smile", tier: 3 },
+    { id: "yuz-boyama", slug: "yuz-boyama", name: "Yüz Boyama", icon: "brush", tier: 3 },
+    { id: "illuzyonist", slug: "illuzyonist", name: "İllüzyonist", icon: "wand", tier: 3 },
+    { id: "pamuk-sekerci", slug: "pamuk-sekerci", name: "Pamuk Şekerci", icon: "candy", tier: 3 },
+    { id: "kostumlu-karakter", slug: "kostumlu-karakter", name: "Kostümlü Karakter", icon: "mask", tier: 3 },
+  ],
+
+  // Etkinlik türleri: ilanlarda "hangi etkinlikler için" etiketi ve aramada filtre olarak kullanılır.
+  events: [
     { id: "dugun", slug: "dugun", name: "Düğün", icon: "flower" },
-    { id: "baby-shower", slug: "baby-shower", name: "Baby Shower & Cinsiyet Partisi", icon: "baby" },
-    { id: "sunnet", slug: "sunnet", name: "Sünnet Organizasyonu", icon: "crown" },
+    { id: "nisan-soz", slug: "nisan-soz", name: "Nişan & Söz", icon: "ring" },
+    { id: "kina", slug: "kina", name: "Kına Gecesi", icon: "moon" },
+    { id: "dogum-gunu", slug: "dogum-gunu", name: "Doğum Günü", icon: "cake" },
+    { id: "sunnet", slug: "sunnet", name: "Sünnet", icon: "crown" },
+    { id: "baby-shower", slug: "baby-shower", name: "Baby Shower", icon: "baby" },
     { id: "evlilik-teklifi", slug: "evlilik-teklifi", name: "Evlilik Teklifi", icon: "heart" },
-    { id: "acilis-kurumsal", slug: "acilis-kurumsal", name: "Açılış & Kurumsal", icon: "store" },
-    { id: "balon-susleme", slug: "balon-susleme", name: "Balon Süsleme", icon: "balloon" },
-    { id: "mekan", slug: "mekan", name: "Mekân & Salon", icon: "building" },
-    { id: "fotograf-video", slug: "fotograf-video", name: "Fotoğraf & Video", icon: "camera" },
-    { id: "muzik-dj", slug: "muzik-dj", name: "Müzik & DJ", icon: "music" },
-    { id: "pasta-ikram", slug: "pasta-ikram", name: "Pasta & İkram", icon: "utensils" },
-    { id: "animasyon", slug: "animasyon", name: "Animasyon & Palyaço", icon: "smile" },
-    { id: "diger", slug: "diger", name: "Diğer Hizmetler", icon: "sparkles" },
+    { id: "kurumsal", slug: "kurumsal", name: "Açılış & Kurumsal", icon: "store" },
   ],
 
   steps: [
-    { id: "s1", title: "Arayın", text: "Kategori ve şehir seçerek size uygun organizasyon firmalarını listeleyin." },
-    { id: "s2", title: "Karşılaştırın", text: "Fotoğraflara, hizmet detaylarına ve fiyatlara göz atın." },
+    { id: "s1", title: "Arayın", text: "Hizmet türü, etkinlik, şehir ve bütçenize göre organizatörleri listeleyin." },
+    {
+      id: "s2",
+      title: "Karşılaştırın",
+      text: "Fotoğraflara, hizmet detaylarına, fiyatlara ve müsait günlere göz atın.",
+    },
     {
       id: "s3",
-      title: "İletişime geçin",
-      text: "Beğendiğiniz firmayı arayın ya da WhatsApp'tan yazın; detayları birlikte netleştirin.",
+      title: "Doğrudan anlaşın",
+      text: "Telefonunuzu doğrulayın, organizatörü arayın ya da WhatsApp'tan yazın. Komisyon yok.",
     },
   ],
 
   faq: [
     {
       id: "f1",
-      q: "İlan vermek ücretli mi?",
-      a: "Hayır. Üye olmak ve ilan vermek tamamen ücretsizdir.",
+      q: "Komisyon alıyor musunuz?",
+      a: "Hayır. Organizasyon Sepeti hiçbir işten komisyon almaz; anlaşma ve ödeme doğrudan sizinle organizatör arasında yapılır.",
     },
     {
       id: "f2",
-      q: "İlanım ne zaman yayına girer?",
-      a: 'Gönderdiğiniz ilanlar ekibimiz tarafından kontrol edildikten sonra yayına alınır. İlanınızın durumunu hesabınızdaki "İlanlarım" sayfasından takip edebilirsiniz.',
+      q: "Organizatörün telefon numarasını neden hemen göremiyorum?",
+      a: "Sahte aramaları ve botları engellemek için iletişim bilgileri, telefon numaranızı SMS koduyla doğruladıktan sonra görünür. Doğrulama birkaç saniye sürer.",
     },
     {
       id: "f3",
-      q: "Organizasyon firmasıyla nasıl iletişime geçerim?",
-      a: 'İlan sayfasındaki "Telefonu göster" ya da WhatsApp butonunu kullanarak firmaya doğrudan ulaşabilirsiniz.',
+      q: "İlan vermek ücretli mi?",
+      a: "İlanlar, hizmet türünüze göre belirlenen aylık, 3 aylık veya yıllık paketlerle yayınlanır. Lansman dönemine özel promosyon kodlarıyla paketinizi ücretsiz başlatabilirsiniz.",
     },
     {
       id: "f4",
-      q: "Ödemeyi siteye mi yapıyorum?",
-      a: "Hayır. Sitemiz firmalarla sizi buluşturan bir ilan platformudur; fiyat, anlaşma ve ödeme doğrudan sizinle firma arasında yapılır.",
+      q: "İlanım ne zaman yayına girer?",
+      a: 'Gönderdiğiniz ilanlar ekibimiz tarafından kontrol edildikten sonra yayına alınır. İlanınızın durumunu hesabınızdaki "İlanlarım" sayfasından takip edebilirsiniz.',
     },
     {
       id: "f5",
@@ -174,6 +191,28 @@ export const DEFAULT_CONTENT = {
       a: 'İlan sayfasındaki "İlanı şikâyet et" bağlantısıyla bize bildirebilirsiniz. Bildirimler incelenir, kurallara aykırı ilanlar yayından kaldırılır.',
     },
   ],
+
+  // PRD fiyatlandırması (TL). Panelden değiştirilebilir.
+  pricing: {
+    freeMode: false, // açıkken tüm paketler ücretsizdir (ödeme adımı atlanır)
+    tiers: {
+      t1: { name: "Üst segment", monthly: 1250, quarterly: 3000, yearly: 12500 },
+      t2: { name: "Orta segment", monthly: 550, quarterly: 1320, yearly: 5500 },
+      t3: { name: "Mikro segment", monthly: 250, quarterly: 600, yearly: 2500 },
+    },
+    dopings: {
+      showcase: { price: 400, days: 7 },
+      categoryTop: { price: 250, days: 7 },
+      highlight: { price: 150, days: 30 },
+    },
+    bank: { bankName: "", holder: "", iban: "", note: "Açıklamaya sipariş numaranızı yazmayı unutmayın." },
+  },
+
+  security: {
+    // SMS sağlayıcısı tanımlıyken ziyaretçiler iletişim bilgilerini görmek için telefonunu doğrular.
+    contactGate: true,
+    blacklistThreshold: 2,
+  },
 
   // {siteName}, {phone}, {email}, {address}, {contact} yer tutucuları sayfa çizilirken
   // iletişim bilgileriyle değiştirilir. "## " başlık, "- " madde işaretidir.
@@ -185,14 +224,8 @@ export const DEFAULT_CONTENT = {
 
 // Panelde "yeni ekle" denildiğinde ve sunucu doğrulamasında kullanılan boş kayıt şablonları.
 export const ITEM_TEMPLATES = {
-  categories: { id: "", slug: "", name: "", icon: "balloon" },
+  categories: { id: "", slug: "", name: "", icon: "sparkles", tier: 3 },
+  events: { id: "", slug: "", name: "", icon: "party" },
   steps: { id: "", title: "", text: "" },
   faq: { id: "", q: "", a: "" },
-};
-
-export const THEMES = {
-  rose: "Gül kurusu",
-  champagne: "Şampanya",
-  lavender: "Lavanta",
-  sage: "Adaçayı",
 };

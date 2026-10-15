@@ -1,9 +1,9 @@
 // Tüm sayfaların ortak parçaları: <head>, üst menü, alt bilgi ve yardımcılar.
 import { icon } from "../../../public/assets/js/icons.js";
-import { formatPrice, listingPath } from "../listings.mjs";
+import { dopingActive, formatPrice, listingPath } from "../listings.mjs";
 
 // CSS/JS değiştiğinde tarayıcı önbelleğini kırmak için artırın.
-export const ASSET_VERSION = "3";
+export const ASSET_VERSION = "4";
 
 const ESCAPES = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
 export const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => ESCAPES[c]);
@@ -77,7 +77,7 @@ export function whatsappHref(settings, text) {
 
 export const logoMark = () => `<svg class="logo-mark" viewBox="0 0 40 40" aria-hidden="true">
   <path d="M14 16.5 18 25M24 15.5 21 25M30.5 20 25 25" stroke="currentColor" stroke-width="1" fill="none"/>
-  <circle cx="14" cy="11" r="6" style="fill:var(--b1)"/><circle cx="24" cy="8.5" r="7" style="fill:var(--accent)"/><circle cx="30.5" cy="16" r="4.6" style="fill:var(--b3)"/>
+  <circle cx="14" cy="11" r="6" style="fill:var(--b1)"/><circle cx="24" cy="8.5" r="7" style="fill:var(--accent)"/><circle cx="30.5" cy="16" r="4.6" style="fill:var(--action)"/>
   <path d="M7.5 24.5h25l-3 10.6a2 2 0 0 1-1.9 1.4H12.4a2 2 0 0 1-1.9-1.4L7.5 24.5Z" fill="currentColor"/>
   <path class="logo-weave" d="M10 28.5h20M11.2 32.5h17.6M15 25v11M20 25v11M25 25v11" stroke-width=".9" fill="none"/>
 </svg>`;
@@ -103,16 +103,17 @@ export const priceHtml = (x) =>
 export const locationText = (x) => (x.district ? `${x.city} / ${x.district}` : `${x.city} (il geneli)`);
 
 // İlan kartı (liste, ana sayfa ve benzer ilanlar)
-export function listingCard(x, cats, { eager = false } = {}) {
+export function listingCard(x, cats, { eager = false, showcase = false } = {}) {
   const cat = cats.get(x.category);
+  const highlight = dopingActive(x, "highlight");
   const href = listingPath(x);
   const image = x.image
     ? `<img src="${esc(imageUrl(x.image, 640, 480))}" alt="${esc(x.title)}" width="640" height="480" ${eager ? 'fetchpriority="high"' : 'loading="lazy"'}>`
     : `<span class="cl-placeholder">${icon(cat?.icon || "balloon")}</span>`;
-  return `<article class="card-listing">
+  return `<article class="card-listing${highlight ? " is-highlight" : ""}">
     <a class="cl-media" href="${esc(href)}" tabindex="-1" aria-hidden="true">
       ${image}
-      ${x.featured ? `<span class="badge badge-featured">${icon("star")}Vitrin</span>` : ""}
+      ${showcase ? `<span class="badge badge-featured">${icon("star")}Vitrin</span>` : highlight ? `<span class="badge badge-highlight">${icon("badge")}Öne Çıkan</span>` : ""}
       ${x.imageCount > 1 ? `<span class="cl-count">${icon("image")}${x.imageCount}</span>` : ""}
     </a>
     <div class="cl-body">
@@ -154,11 +155,11 @@ function siteHeader(c, { home }) {
     <a class="logo" href="/" aria-label="${esc(s.siteName)} ana sayfa">${logoMark()}<span>${esc(s.siteName)}</span></a>
     <nav class="main-nav" id="menu" aria-label="Ana menü">
       <a href="/ilanlar">İlanlar</a>
-      <a href="/#kategoriler">Kategoriler</a>
+      <a href="/#hizmetler">Hizmetler</a>
       <a href="/#nasil-calisir">Nasıl çalışır?</a>
       <a href="/iletisim">İletişim</a>
       <a class="nav-account" href="/hesap/" data-account-link>${icon("user")}<span>Giriş yap</span></a>
-      <a class="btn btn-primary btn-sm nav-cta" href="/hesap/#yeni-ilan">${icon("plus")}Ücretsiz İlan Ver</a>
+      <a class="btn btn-action btn-sm nav-cta" href="/hesap/#yeni-ilan">${icon("plus")}İlan Ver</a>
     </nav>
     <button class="menu-toggle" type="button" aria-controls="menu" aria-expanded="false" aria-label="Menüyü aç">${icon("menu")}${icon("close")}</button>
   </div>
@@ -175,8 +176,8 @@ function siteFooter(c) {
         ${s.tagline ? `<p>${esc(s.tagline)}</p>` : ""}
         ${social.length ? `<div class="social">${social.map((x) => `<a href="${esc(x.url)}" target="_blank" rel="noopener" aria-label="${x.label}">${icon(x.name)}</a>`).join("")}</div>` : ""}
       </div>
-      <nav class="footer-col" aria-label="Kategoriler">
-        <h4>Kategoriler</h4>
+      <nav class="footer-col" aria-label="Hizmetler">
+        <h4>Hizmetler</h4>
         ${c.categories
           .slice(0, 7)
           .map((cat) => `<a href="/ilanlar?kategori=${esc(cat.slug)}">${esc(cat.name)}</a>`)
@@ -185,8 +186,8 @@ function siteFooter(c) {
       <nav class="footer-col" aria-label="Site">
         <h4>Site</h4>
         <a href="/ilanlar">Tüm ilanlar</a>
-        <a href="/hesap/#yeni-ilan">Ücretsiz ilan ver</a>
-        <a href="/hesap/">Firma girişi</a>
+        <a href="/hesap/#yeni-ilan">İlan ver</a>
+        <a href="/hesap/">Organizatör girişi</a>
         <a href="/iletisim">İletişim</a>
       </nav>
       <nav class="footer-col" aria-label="Yasal">
@@ -199,7 +200,7 @@ function siteFooter(c) {
     </div>
     <div class="container footer-bottom">
       <p>© ${new Date().getFullYear()} ${esc(s.siteName)}. Tüm hakları saklıdır.</p>
-      <p>${esc(s.siteName)} bir ilan platformudur; hizmetler ilan veren firmalar tarafından sunulur.</p>
+      <p>${esc(s.siteName)} komisyon almaz; hizmetler ilan veren organizatörler tarafından sunulur.</p>
     </div>
   </footer>`;
 }
@@ -212,7 +213,7 @@ export function layout(c, { title, description, path, ogImage, body, home = fals
     imageUrl(safeUrl(ogImage) || safeUrl(s.ogImage) || "/assets/img/og-default.jpg", 1200, 630),
   );
   return `<!doctype html>
-<html lang="tr" data-theme="${esc(s.theme)}">
+<html lang="tr">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -227,12 +228,13 @@ ${noindex ? '<meta name="robots" content="noindex">' : `<link rel="canonical" hr
 <meta property="og:url" content="${esc(url)}">
 <meta property="og:image" content="${esc(image)}">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="theme-color" content="#fbf7f4">
+<meta name="theme-color" content="#6c5ce7">
 <link rel="icon" href="/assets/img/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/assets/img/apple-touch-icon.png">
+<link rel="manifest" href="/manifest.webmanifest">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500;1,600&family=Manrope:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
 <link rel="stylesheet" href="/assets/css/site.css?v=${ASSET_VERSION}">
 ${[structuredData(c), ...ld].map(jsonLd).join("\n")}
 <script type="module" src="/assets/js/site.js?v=${ASSET_VERSION}"></script>

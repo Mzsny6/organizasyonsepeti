@@ -1,0 +1,21 @@
+{
+  "name": "Organizasyon Sepeti",
+  "short_name": "Org. Sepeti",
+  "description": "Etkinliğiniz için organizatör bulun: düğün salonu, catering, fotoğrafçı, palyaço, ses-ışık ve daha fazlası.",
+  "lang": "tr",
+  "start_url": "/?kaynak=uygulama",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f8f9fa",
+  "theme_color": "#6c5ce7",
+  "icons": [
+    { "src": "/assets/img/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/img/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/img/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "İlanlar", "url": "/ilanlar" },
+    { "name": "İlan ver", "url": "/hesap/#yeni-ilan" },
+    { "name": "Takvimim", "url": "/hesap/#takvim" }
+  ]
+}

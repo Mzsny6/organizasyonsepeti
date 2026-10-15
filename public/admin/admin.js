@@ -1,75 +1,23 @@
-import { ICONS, icon } from "/assets/js/icons.js";
+// Yönetim paneli: moderasyon (ilanlar, ödemeler, promosyonlar, üyeler, kara liste, şikâyetler, mesajlar)
+// ve site içeriği/ayarları.
+import { ICONS } from "/assets/js/icons.js";
+import {
+  api,
+  fill,
+  fmtDate,
+  fmtDay,
+  fmtPrice,
+  fmtSize,
+  h,
+  ic,
+  pickFiles,
+  setUnauthorizedHandler,
+  thumbUrl,
+  toast,
+  uploadImage,
+} from "/assets/js/ui.js";
 
-/* ============================================================
-   Yardımcılar
-   ============================================================ */
-
-// Güvenli DOM oluşturucu: metinler her zaman textContent olarak eklenir.
-function h(tag, attrs, ...children) {
-  const el = document.createElement(tag);
-  for (const [key, value] of Object.entries(attrs || {})) {
-    if (value === null || value === undefined || value === false) continue;
-    if (key === "class") el.className = value;
-    else if (key === "html")
-      el.innerHTML = value; // yalnızca güvenilir (ikon) içerik
-    else if (key.startsWith("on")) el.addEventListener(key.slice(2), value);
-    else if (key === "value" || key === "checked" || key === "selected" || key === "open") el[key] = value;
-    else el.setAttribute(key, value === true ? "" : value);
-  }
-  for (const child of children.flat(Infinity)) {
-    if (child === null || child === undefined || child === false) continue;
-    el.append(child instanceof Node ? child : String(child));
-  }
-  return el;
-}
-
-// replaceChildren, null/false değerleri "null" yazısına çevirdiği için önce temizlenir.
-const fill = (el, ...kids) =>
-  el.replaceChildren(...kids.flat(Infinity).filter((k) => k !== null && k !== undefined && k !== false));
-const ic = (name, cls = "icon") => h("span", { class: "icon-wrap", html: icon(name, cls), "aria-hidden": "true" });
-const newId = () => Math.random().toString(16).slice(2, 12).padEnd(10, "0");
-const clone = (v) => structuredClone(v);
-const fmtDate = (iso) =>
-  new Date(iso).toLocaleString("tr-TR", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-const fmtSize = (bytes) =>
-  bytes > 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
-
-function toast(message, type = "info") {
-  const el = h("div", { class: `toast toast-${type}`, role: type === "error" ? "alert" : "status" }, message);
-  document.getElementById("toasts").append(el);
-  setTimeout(() => el.classList.add("is-leaving"), 3600);
-  setTimeout(() => el.remove(), 4000);
-}
-
-class ApiError extends Error {
-  constructor(status, message) {
-    super(message);
-    this.status = status;
-  }
-}
-
-async function api(path, { method = "GET", body, headers = {} } = {}) {
-  const isJson = body !== undefined && !(body instanceof Blob);
-  const res = await fetch(path, {
-    method,
-    headers: isJson ? { "Content-Type": "application/json", ...headers } : headers,
-    body: isJson ? JSON.stringify(body) : body,
-    credentials: "same-origin",
-  });
-  const data = await res.json().catch(() => ({}));
-  if (res.status === 401 && path !== "/api/login") {
-    showLogin("Oturumunuz sona erdi, lütfen tekrar giriş yapın.");
-    throw new ApiError(401, data.error || "Oturum sona erdi.");
-  }
-  if (!res.ok) throw new ApiError(res.status, data.error || "İşlem başarısız oldu.");
-  return data;
-}
+setUnauthorizedHandler(() => showLogin("Oturumunuz sona erdi, lütfen tekrar giriş yapın."));
 
 /* ============================================================
    Durum
@@ -79,6 +27,7 @@ const state = {
   content: null,
   savedJson: "",
   messages: [],
+  summary: null,
   page: "panel",
   saving: false,
 };
@@ -89,65 +38,49 @@ function markDirty() {
   document.body.classList.toggle("is-dirty", isDirty());
 }
 
+const newId = () => Math.random().toString(16).slice(2, 12).padEnd(10, "0");
+const clone = (v) => structuredClone(v);
+const nowIso = () => new Date().toISOString();
+
 const TEMPLATES = {
-  services: { title: "", text: "", icon: "balloon", image: "", price: "" },
+  categories: { slug: "", name: "", icon: "sparkles", tier: 3 },
+  events: { slug: "", name: "", icon: "party" },
   steps: { title: "", text: "" },
-  packages: { name: "", price: "", note: "", features: [], featured: false },
-  stats: { value: "", label: "" },
-  gallery: { image: "", caption: "", category: "" },
-  testimonials: { name: "", event: "", text: "", rating: 5 },
   faq: { q: "", a: "" },
 };
 
-const THEMES = [
-  ["rose", "Gül kurusu", ["#a8475f", "#eaa9b8", "#dcb67e"]],
-  ["champagne", "Şampanya", ["#96682d", "#ead2a8", "#cfa66c"]],
-  ["lavender", "Lavanta", ["#6c529d", "#c9b6e8", "#f4dbe7"]],
-  ["sage", "Adaçayı", ["#4b705d", "#b9d0be", "#f2ddcc"]],
-];
+const PACKAGE_LABELS = { "": "Tüm paketler", monthly: "1 Aylık", quarterly: "3 Aylık", yearly: "Yıllık" };
+const DOPING_LABELS = {
+  showcase: "Ana Sayfa Vitrini",
+  categoryTop: "Kategori Üst Sıra",
+  highlight: "Renkli Çerçeve & Rozet",
+};
+const REPORT_REASONS = {
+  yaniltici: "Yanıltıcı ya da yanlış bilgi",
+  dolandiricilik: "Dolandırıcılık şüphesi",
+  uygunsuz: "Uygunsuz içerik",
+  kopya: "Başkasına ait fotoğraf veya kopya ilan",
+  diger: "Diğer",
+};
+const BLACKLIST_REASONS = {
+  "sahte-adres": "Asılsız ya da yanlış adres verdi",
+  "kapida-iptal": "Adrese gidildiğinde iptal etti",
+  "odeme-yapmadi": "Hizmet sonrası ödeme yapmadı",
+  diger: "Diğer kötü niyetli davranış",
+};
+
+async function loadSummary() {
+  try {
+    state.summary = await api("/api/admin/summary");
+  } catch {
+    /* panel yine de açılır */
+  }
+  renderNav();
+}
 
 /* ============================================================
-   Görsel yükleme
+   Medya seçici
    ============================================================ */
-
-// Telefondan gelen büyük fotoğrafları yüklemeden önce küçültür (en fazla 2000 px, WebP/JPEG).
-async function prepareImage(file) {
-  if (file.type === "image/gif") return file;
-  let bitmap;
-  try {
-    bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
-  } catch {
-    return file;
-  }
-  const scale = Math.min(1, 2000 / Math.max(bitmap.width, bitmap.height));
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.round(bitmap.width * scale);
-  canvas.height = Math.round(bitmap.height * scale);
-  canvas.getContext("2d").drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-  const toBlob = (type, q) => new Promise((resolve) => canvas.toBlob(resolve, type, q));
-  let blob = await toBlob("image/webp", 0.85);
-  if (!blob || blob.type !== "image/webp") blob = await toBlob("image/jpeg", 0.86);
-  return blob && (blob.size < file.size || scale < 1) ? blob : file;
-}
-
-async function uploadImage(file) {
-  const prepared = await prepareImage(file);
-  if (prepared.size > 5 * 1024 * 1024) throw new Error(`${file.name}: görsel 5 MB'tan büyük.`);
-  const result = await api("/api/media", {
-    method: "POST",
-    body: prepared,
-    headers: { "Content-Type": prepared.type || file.type, "X-File-Name": encodeURIComponent(file.name) },
-  });
-  return result.url;
-}
-
-function pickFiles({ multiple = false } = {}) {
-  return new Promise((resolve) => {
-    const input = h("input", { type: "file", accept: "image/*", multiple });
-    input.addEventListener("change", () => resolve([...input.files]));
-    input.click();
-  });
-}
 
 async function openMediaPicker() {
   const { items } = await api("/api/media");
@@ -239,8 +172,16 @@ function field(obj, def) {
         return imageField(obj, def);
       case "list":
         return stringList(obj, def);
-      case "theme":
-        return themePicker(obj, def);
+      case "number":
+        return h("input", {
+          id,
+          type: "number",
+          min: def.min ?? 0,
+          max: def.max,
+          step: def.step || 1,
+          value: obj[def.key] ?? 0,
+          oninput: (e) => setValue(obj, def.key, Number(e.target.value)),
+        });
       default:
         return h("input", {
           id,
@@ -252,7 +193,7 @@ function field(obj, def) {
         });
     }
   })();
-  const labelTag = ["text", "textarea", "select", undefined].includes(def.type) ? "label" : "div";
+  const labelTag = ["text", "textarea", "select", "number", undefined].includes(def.type) ? "label" : "div";
   return h(
     "div",
     { class: `field${def.wide ? " is-wide" : ""}` },
@@ -287,35 +228,6 @@ function iconPicker(obj, def) {
             ic(name),
           ),
         ),
-    );
-  render();
-  return wrap;
-}
-
-function themePicker(obj, def) {
-  const wrap = h("div", { class: "theme-picker" });
-  const render = () =>
-    fill(
-      wrap,
-      ...THEMES.map(([value, label, colors]) =>
-        h(
-          "button",
-          {
-            type: "button",
-            class: `theme-option${obj[def.key] === value ? " is-active" : ""}`,
-            onclick: () => {
-              setValue(obj, def.key, value);
-              render();
-            },
-          },
-          h(
-            "span",
-            { class: "swatches" },
-            colors.map((c) => h("span", { style: `background:${c}` })),
-          ),
-          label,
-        ),
-      ),
     );
   render();
   return wrap;
@@ -470,13 +382,6 @@ const SECTION_FIELDS = [
   { key: "text", label: "Açıklama", type: "textarea", rows: 2, wide: true },
 ];
 
-const sectionCard = (key) =>
-  card(
-    "Bölüm başlığı",
-    "Bu bölümün sitedeki başlık ve açıklaması.",
-    formGrid(state.content.sections[key], SECTION_FIELDS),
-  );
-
 // Sıralanabilir, açılır-kapanır kayıt listesi (hizmetler, paketler, SSS…)
 function listEditor(key, { label, fields, titleOf, emptyText }) {
   const wrap = h("div", { class: "list-editor" });
@@ -571,95 +476,1200 @@ function listEditor(key, { label, fields, titleOf, emptyText }) {
 
 const NAV = [
   { id: "panel", title: "Genel bakış", icon: "sparkles" },
+  { group: "Moderasyon" },
+  { id: "ilanlar", title: "İlanlar", icon: "image", badge: () => state.summary?.listings.pending },
+  { id: "odemeler", title: "Ödemeler", icon: "wallet", badge: () => state.summary?.awaitingPayments },
+  { id: "promosyonlar", title: "Promosyon kodları", icon: "tag" },
+  { id: "uyeler", title: "Üyeler", icon: "user" },
+  { id: "karaliste", title: "Kara liste", icon: "ban" },
+  { id: "sikayetler", title: "Şikâyetler", icon: "flag", badge: () => state.summary?.reports },
   { id: "mesajlar", title: "Mesajlar", icon: "mail", badge: () => state.messages.filter((m) => !m.read).length },
   { group: "Site içeriği" },
-  { id: "anasayfa", title: "Karşılama alanı", icon: "star" },
-  { id: "hizmetler", title: "Hizmetler", icon: "balloon" },
-  { id: "surec", title: "Çalışma adımları", icon: "check" },
-  { id: "paketler", title: "Paketler", icon: "gift" },
-  { id: "galeri", title: "Galeri", icon: "camera" },
-  { id: "hakkimizda", title: "Hakkımızda", icon: "heart" },
-  { id: "yorumlar", title: "Yorumlar", icon: "quote" },
+  { id: "anasayfa", title: "Ana sayfa", icon: "star" },
+  { id: "kategoriler", title: "Hizmet kategorileri", icon: "balloon" },
+  { id: "etkinlikler", title: "Etkinlik türleri", icon: "party" },
+  { id: "surec", title: "Nasıl çalışır", icon: "check" },
   { id: "sss", title: "Sıkça sorulanlar", icon: "flower" },
   { group: "Ayarlar" },
+  { id: "fiyatlar", title: "Fiyatlandırma", icon: "wallet" },
+  { id: "guvenlik", title: "Güvenlik & SMS", icon: "shield" },
   { id: "iletisim", title: "İletişim bilgileri", icon: "phone" },
-  { id: "gorunum", title: "Görünüm & SEO", icon: "crown" },
-  { id: "medya", title: "Medya kütüphanesi", icon: "party" },
+  { id: "seo", title: "Marka & SEO", icon: "crown" },
+  { id: "yasal", title: "Yasal metinler", icon: "flag" },
+  { id: "medya", title: "Medya kütüphanesi", icon: "camera" },
   { id: "hesap", title: "Hesap & yedekler", icon: "clock" },
 ];
 
-const PAGES = {
-  panel: {
-    title: "Genel bakış",
-    render: renderDashboard,
-  },
+const statusChip = (label, tone) => h("span", { class: `chip chip-${tone}` }, label);
+const loading = () => h("p", { class: "empty" }, "Yükleniyor…");
+const categoryName = (id) => state.content.categories.find((c) => c.id === id)?.name || "—";
 
-  mesajlar: {
-    title: "Mesajlar",
-    description: "Sitedeki teklif formundan gelen talepler.",
-    render: renderMessages,
+function tabs(items, current, onSelect) {
+  return h(
+    "div",
+    { class: "tabs", role: "tablist" },
+    items.map(([value, label, count]) =>
+      h(
+        "button",
+        {
+          type: "button",
+          role: "tab",
+          "aria-selected": String(current === value),
+          class: current === value ? "is-active" : "",
+          onclick: () => onSelect(value),
+        },
+        label,
+        count !== undefined ? h("em", { class: "tab-count" }, count) : null,
+      ),
+    ),
+  );
+}
+
+async function act(promise, success) {
+  try {
+    const result = await promise;
+    if (success) toast(success, "success");
+    loadSummary();
+    return result;
+  } catch (err) {
+    if (err.status !== 401) toast(err.message, "error");
+    throw err;
+  }
+}
+
+/* ---------- Genel bakış ---------- */
+
+function renderDashboard() {
+  const box = h("div", { class: "page-body" }, loading());
+  loadSummary().then(() => fill(box, dashboardBody()));
+  return box;
+}
+
+function dashboardBody() {
+  const s = state.summary;
+  if (!s) return h("p", { class: "empty" }, "Özet yüklenemedi.");
+  const c = state.content;
+  const stat = (value, label, page, tone = "") =>
+    h(
+      "button",
+      { type: "button", class: `stat${tone ? ` is-${tone}` : ""}`, onclick: () => go(page) },
+      h("strong", {}, value),
+      h("span", {}, label),
+    );
+
+  const notices = [];
+  if (!s.sms.configured) {
+    notices.push([
+      "warn",
+      "SMS sağlayıcısı bağlı değil. İletişim bariyeri kapalı: ziyaretçiler telefon doğrulaması yapmadan numaraları görür. Netgsm bilgilerini Netlify ortam değişkenlerine ekleyin (README).",
+    ]);
+  } else if (s.sms.testMode) {
+    notices.push([
+      "warn",
+      "SMS test modunda: kodlar gönderilmiyor, sunucu kaydına yazılıyor. Canlı kullanımda SMS_TEST_MODE ayarını kaldırın.",
+    ]);
+  }
+  if (c.pricing.freeMode) notices.push(["info", "Ücretsiz mod açık: tüm ilan paketleri ve dopingler ücretsiz."]);
+  else if (!c.pricing.bank.iban)
+    notices.push([
+      "warn",
+      "Havale/EFT için IBAN bilgisi girilmedi. Ücretli siparişlerde organizatörler ödeme bilgisini göremez → Fiyatlandırma.",
+    ]);
+
+  const tasks = [
+    [Boolean(c.settings.phone || c.settings.email), "İletişim bilgilerini girin", "iletisim"],
+    [Boolean(c.settings.instagram), "Instagram hesabını ekleyin", "iletisim"],
+    [c.pricing.freeMode || Boolean(c.pricing.bank.iban), "Havale/EFT banka bilgilerini girin", "fiyatlar"],
+    [s.sms.configured && !s.sms.testMode, "SMS sağlayıcısını (Netgsm) bağlayın", "guvenlik"],
+    [Boolean(c.hero.image), "Ana sayfaya bir kapak fotoğrafı koyun", "anasayfa"],
+    [false, "KVKK ve kullanım koşullarını bir hukukçuya kontrol ettirin", "yasal"],
+  ];
+
+  return [
+    notices.length
+      ? h(
+          "div",
+          { class: "notices" },
+          notices.map(([tone, text]) => h("p", { class: `notice notice-${tone}` }, text)),
+        )
+      : null,
+    h(
+      "div",
+      { class: "stats-row" },
+      stat(s.listings.pending, "Onay bekleyen ilan", "ilanlar", s.listings.pending ? "alert" : ""),
+      stat(s.awaitingPayments, "Ödeme bekleyen sipariş", "odemeler", s.awaitingPayments ? "alert" : ""),
+      stat(s.reports, "Açık şikâyet", "sikayetler", s.reports ? "alert" : ""),
+      stat(s.unreadMessages, "Okunmamış mesaj", "mesajlar"),
+      stat(s.listings.active, "Yayındaki ilan", "ilanlar"),
+      stat(s.organizers, "Organizatör", "uyeler"),
+      stat(s.clients, "Doğrulanmış ziyaretçi", "uyeler"),
+      stat(fmtPrice(s.revenue) || "0 ₺", "Toplam tahsilat", "odemeler"),
+    ),
+    card(
+      "Yapılacaklar",
+      null,
+      h(
+        "ul",
+        { class: "checklist" },
+        tasks.map(([ok, text, page]) =>
+          h(
+            "li",
+            { class: ok ? "is-done" : "" },
+            h("button", { type: "button", onclick: () => go(page) }, ic(ok ? "check" : "chevron"), text),
+          ),
+        ),
+      ),
+    ),
+  ];
+}
+
+/* ---------- İlanlar (moderasyon) ---------- */
+
+let listingTab = "pending";
+let listingQuery = "";
+const paid = (x) => x.credit > 0 || (x.expiresAt && x.expiresAt > nowIso());
+const LISTING_TABS = {
+  pending: ["Onay bekleyen", (x) => x.status === "pending" && paid(x) && !x.awaitingOrder],
+  payment: ["Ödeme bekleyen", (x) => x.status === "pending" && x.awaitingOrder],
+  nopackage: ["Paketsiz", (x) => x.status === "pending" && !paid(x) && !x.awaitingOrder],
+  live: ["Yayında", (x) => x.status === "active" && x.expiresAt > nowIso()],
+  expired: ["Süresi dolan", (x) => x.status === "active" && !(x.expiresAt > nowIso())],
+  rejected: ["Reddedilen", (x) => x.status === "rejected"],
+  passive: ["Pasif", (x) => x.status === "passive"],
+  all: ["Tümü", () => true],
+};
+
+function listingState(x) {
+  for (const [key, [label, test]] of Object.entries(LISTING_TABS)) {
+    if (key !== "all" && test(x))
+      return [
+        label,
+        {
+          pending: "alert",
+          payment: "warn",
+          nopackage: "warn",
+          live: "ok",
+          expired: "muted",
+          rejected: "bad",
+          passive: "muted",
+        }[key],
+      ];
+  }
+  return ["—", "muted"];
+}
+
+function renderListingsAdmin() {
+  const wrap = h("div", { class: "page-body" }, loading());
+  let listings = [];
+  const load = async () => {
+    listings = (await api("/api/admin/listings")).listings;
+    draw();
+  };
+
+  function draw() {
+    const q = listingQuery.toLocaleLowerCase("tr");
+    const items = listings
+      .filter(LISTING_TABS[listingTab][1])
+      .filter((x) => !q || `${x.title} ${x.company} ${x.id}`.toLocaleLowerCase("tr").includes(q))
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+    fill(
+      wrap,
+      h(
+        "div",
+        { class: "toolbar" },
+        tabs(
+          Object.entries(LISTING_TABS).map(([k, [label, test]]) => [k, label, listings.filter(test).length]),
+          listingTab,
+          (v) => ((listingTab = v), draw()),
+        ),
+        h("input", {
+          class: "search-input",
+          type: "search",
+          placeholder: "Başlık, firma ya da ilan no ara",
+          value: listingQuery,
+          oninput: (e) => {
+            listingQuery = e.target.value;
+            draw();
+            wrap.querySelector(".search-input")?.focus();
+          },
+        }),
+      ),
+      items.length
+        ? h(
+            "div",
+            { class: "mod-list" },
+            items.map((x) => listingRow(x, load)),
+          )
+        : h("p", { class: "empty" }, "Bu bölümde ilan yok."),
+    );
+  }
+  load().catch((err) => fill(wrap, h("p", { class: "empty" }, err.message)));
+  return wrap;
+}
+
+function listingRow(x, reload) {
+  const [label, tone] = listingState(x);
+  const detail = h("div", { class: "mod-detail", hidden: true });
+  const toggle = h(
+    "button",
+    {
+      type: "button",
+      class: "btn btn-light btn-sm",
+      onclick: async () => {
+        detail.hidden = !detail.hidden;
+        toggle.textContent = detail.hidden ? "İncele" : "Kapat";
+        if (!detail.hidden) await listingDetail(x.id, detail, reload);
+      },
+    },
+    "İncele",
+  );
+  const activeDopings = Object.entries(x.dopings || {}).filter(([, until]) => until > nowIso());
+  return h(
+    "article",
+    { class: "mod-row" },
+    h(
+      "div",
+      { class: "mod-summary" },
+      h("div", { class: "mod-thumb" }, x.image ? h("img", { src: thumbUrl(x.image, 200, 150), alt: "" }) : ic("image")),
+      h(
+        "div",
+        { class: "mod-info" },
+        h(
+          "div",
+          { class: "mod-top" },
+          statusChip(label, tone),
+          activeDopings.map(([k]) => statusChip(DOPING_LABELS[k], "accent")),
+          h("small", {}, `#${x.id.toUpperCase()}`),
+        ),
+        h("strong", {}, x.title),
+        h(
+          "span",
+          {},
+          [x.company, categoryName(x.category), x.district ? `${x.city} / ${x.district}` : x.city].join(" · "),
+        ),
+        h(
+          "small",
+          {},
+          [
+            `Eklendi ${fmtDay(x.createdAt)}`,
+            x.expiresAt ? `Bitiş ${fmtDay(x.expiresAt)}` : x.credit ? `${x.credit} gün ödenmiş` : "",
+            `${x.stats?.phone || 0} telefon · ${x.stats?.whatsapp || 0} WhatsApp`,
+          ]
+            .filter(Boolean)
+            .join(" · "),
+        ),
+      ),
+      toggle,
+    ),
+    detail,
+  );
+}
+
+async function listingDetail(id, box, reload) {
+  fill(box, loading());
+  const { listing: l, owner } = await api(`/api/admin/listings/${id}`);
+  const run = async (promise, message) => {
+    await act(promise, message);
+    await reload();
+  };
+  const isLive = l.status === "active" && l.expiresAt > nowIso();
+  const dopingSelect = h(
+    "select",
+    {},
+    Object.entries(DOPING_LABELS).map(([k, v]) => h("option", { value: k }, v)),
+  );
+  const dopingDays = h("input", {
+    type: "number",
+    min: 1,
+    max: 365,
+    value: 7,
+    class: "days-input",
+    "aria-label": "Gün",
+  });
+
+  fill(
+    box,
+    h(
+      "div",
+      { class: "mod-grid" },
+      h(
+        "div",
+        {},
+        l.images.length
+          ? h(
+              "div",
+              { class: "mod-images" },
+              l.images.map((u) =>
+                h(
+                  "a",
+                  { href: u, target: "_blank", rel: "noopener" },
+                  h("img", { src: thumbUrl(u, 240, 180), alt: "" }),
+                ),
+              ),
+            )
+          : h("p", { class: "empty" }, "Fotoğraf yok."),
+        h("p", { class: "mod-desc" }, l.description),
+        h(
+          "dl",
+          { class: "mod-facts" },
+          [
+            ["Fiyat", l.priceMin ? `${fmtPrice(l.priceMin)} ${l.priceNote}` : "Belirtilmedi"],
+            [
+              "Etkinlikler",
+              (l.events || []).map((e) => state.content.events.find((x) => x.id === e)?.name || e).join(", ") || "—",
+            ],
+            ["Telefon", `${l.phone}${l.whatsapp ? " (WhatsApp)" : ""}`],
+            ["Instagram", l.instagram ? `@${l.instagram}` : "—"],
+            ["Takvim", l.showCalendar ? "İlanda gösteriliyor" : "Gizli"],
+            [
+              "Yayın",
+              l.expiresAt
+                ? `${fmtDay(l.expiresAt)} tarihine kadar`
+                : l.credit
+                  ? `Onaylanınca ${l.credit} gün`
+                  : "Paket yok",
+            ],
+          ].map(([k, v]) => h("div", {}, h("dt", {}, k), h("dd", {}, v))),
+        ),
+      ),
+      h(
+        "div",
+        { class: "mod-side" },
+        owner
+          ? h(
+              "div",
+              { class: "owner-card" },
+              h("strong", {}, owner.company, owner.phoneVerified ? statusChip("Onaylı", "ok") : null),
+              h("span", {}, owner.name),
+              h("a", { href: `mailto:${owner.email}` }, owner.email),
+              h("a", { href: `tel:${owner.phone.replace(/[^\d+]/g, "")}` }, owner.phone),
+              h("small", {}, `T.C./VKN ${owner.tcVkn || "—"} · Üye ${fmtDay(owner.createdAt)}`),
+            )
+          : h("p", { class: "empty" }, "İlan sahibi bulunamadı."),
+        l.rejectReason ? h("p", { class: "notice notice-warn" }, `Red nedeni: ${l.rejectReason}`) : null,
+        h(
+          "div",
+          { class: "mod-actions" },
+          l.status !== "active" || !isLive
+            ? h(
+                "button",
+                {
+                  type: "button",
+                  class: "btn btn-primary btn-sm",
+                  disabled: !paid(l),
+                  title: paid(l) ? "" : "Önce ödemeyi onaylayın ya da süre ekleyin.",
+                  onclick: () =>
+                    run(
+                      api(`/api/admin/listings/${id}/moderate`, { method: "POST", body: { status: "active" } }),
+                      "İlan yayına alındı.",
+                    ),
+                },
+                "Onayla ve yayınla",
+              )
+            : null,
+          h(
+            "button",
+            {
+              type: "button",
+              class: "btn btn-light btn-sm danger",
+              onclick: () => {
+                const reason = prompt("Red nedeni (organizatör görecek):", "İlan yayın kurallarına uygun bulunmadı.");
+                if (reason !== null)
+                  run(
+                    api(`/api/admin/listings/${id}/moderate`, { method: "POST", body: { status: "rejected", reason } }),
+                    "İlan reddedildi.",
+                  );
+              },
+            },
+            "Reddet",
+          ),
+          l.status === "active"
+            ? h(
+                "button",
+                {
+                  type: "button",
+                  class: "btn btn-light btn-sm",
+                  onclick: () =>
+                    run(
+                      api(`/api/admin/listings/${id}/moderate`, { method: "POST", body: { status: "passive" } }),
+                      "İlan yayından kaldırıldı.",
+                    ),
+                },
+                "Yayından kaldır",
+              )
+            : null,
+          h(
+            "button",
+            {
+              type: "button",
+              class: "btn btn-light btn-sm",
+              onclick: () => {
+                const days = prompt("Yayın süresine kaç gün eklensin? (ücretsiz/manuel paket)", "30");
+                if (days)
+                  run(
+                    api(`/api/admin/listings/${id}/extend`, { method: "POST", body: { days: Number(days) } }),
+                    `${days} gün eklendi.`,
+                  );
+              },
+            },
+            "Süre ekle",
+          ),
+          isLive
+            ? h(
+                "a",
+                { class: "btn btn-light btn-sm", href: `/ilan/${l.slug}-${l.id}`, target: "_blank", rel: "noopener" },
+                "Sitede gör ↗",
+              )
+            : null,
+          h(
+            "button",
+            {
+              type: "button",
+              class: "btn btn-ghost btn-sm danger",
+              onclick: () =>
+                confirm("İlan ve fotoğrafları kalıcı olarak silinsin mi?") &&
+                run(api(`/api/admin/listings/${id}`, { method: "DELETE" }), "İlan silindi."),
+            },
+            "Sil",
+          ),
+        ),
+        h(
+          "div",
+          { class: "doping-admin" },
+          h("strong", {}, "Doping tanımla"),
+          h(
+            "div",
+            { class: "inline-form" },
+            dopingSelect,
+            dopingDays,
+            h("span", {}, "gün"),
+            h(
+              "button",
+              {
+                type: "button",
+                class: "btn btn-light btn-sm",
+                onclick: () =>
+                  run(
+                    api(`/api/admin/listings/${id}/doping`, {
+                      method: "POST",
+                      body: { doping: dopingSelect.value, days: Number(dopingDays.value) },
+                    }),
+                    "Doping tanımlandı.",
+                  ),
+              },
+              "Ekle",
+            ),
+          ),
+          Object.entries(l.dopings || {})
+            .filter(([, until]) => until > nowIso())
+            .map(([k, until]) =>
+              h(
+                "p",
+                { class: "doping-line" },
+                `${DOPING_LABELS[k]}: ${fmtDay(until)} tarihine kadar`,
+                h(
+                  "button",
+                  {
+                    type: "button",
+                    class: "link-btn",
+                    onclick: () =>
+                      run(
+                        api(`/api/admin/listings/${id}/doping`, { method: "POST", body: { doping: k, days: 0 } }),
+                        "Doping kaldırıldı.",
+                      ),
+                  },
+                  "Kaldır",
+                ),
+              ),
+            ),
+        ),
+      ),
+    ),
+  );
+}
+
+/* ---------- Ödemeler ---------- */
+
+let orderTab = "awaiting";
+const ORDER_STATUS = { awaiting: ["Ödeme bekleniyor", "alert"], paid: ["Ödendi", "ok"], cancelled: ["İptal", "muted"] };
+
+function renderOrdersAdmin() {
+  const wrap = h("div", { class: "page-body" }, loading());
+  let orders = [];
+  const load = async () => {
+    orders = (await api("/api/admin/orders")).orders;
+    draw();
+  };
+  function draw() {
+    const items = orders.filter((o) => orderTab === "all" || o.status === orderTab);
+    const bank = state.content.pricing.bank;
+    fill(
+      wrap,
+      !bank.iban && !state.content.pricing.freeMode
+        ? h(
+            "p",
+            { class: "notice notice-warn" },
+            "IBAN bilgisi girilmedi; organizatörler ödeme bilgisini göremez. Fiyatlandırma sayfasından ekleyin.",
+          )
+        : null,
+      h(
+        "div",
+        { class: "toolbar" },
+        tabs(
+          [
+            ["awaiting", "Bekleyen", orders.filter((o) => o.status === "awaiting").length],
+            ["paid", "Ödenen", orders.filter((o) => o.status === "paid").length],
+            ["cancelled", "İptal", orders.filter((o) => o.status === "cancelled").length],
+            ["all", "Tümü", orders.length],
+          ],
+          orderTab,
+          (v) => ((orderTab = v), draw()),
+        ),
+      ),
+      items.length
+        ? h(
+            "div",
+            { class: "card table-wrap" },
+            h(
+              "table",
+              { class: "table" },
+              h(
+                "thead",
+                {},
+                h(
+                  "tr",
+                  {},
+                  ["Sipariş", "Tarih", "Organizatör", "Ürün", "İlan", "Tutar", "Durum", ""].map((t) => h("th", {}, t)),
+                ),
+              ),
+              h(
+                "tbody",
+                {},
+                items.map((o) =>
+                  h(
+                    "tr",
+                    {},
+                    h("td", {}, h("strong", {}, o.no)),
+                    h("td", {}, fmtDate(o.createdAt)),
+                    h("td", {}, o.company),
+                    h("td", {}, o.label, o.promo ? h("small", { class: "muted" }, ` · ${o.promo}`) : null),
+                    h("td", {}, o.listingTitle),
+                    h(
+                      "td",
+                      {},
+                      o.amount ? fmtPrice(o.amount) : "Ücretsiz",
+                      o.discount ? h("small", { class: "muted" }, ` (−${fmtPrice(o.discount)})`) : null,
+                    ),
+                    h("td", {}, statusChip(...ORDER_STATUS[o.status])),
+                    h(
+                      "td",
+                      { class: "cell-actions" },
+                      o.status === "awaiting"
+                        ? [
+                            h(
+                              "button",
+                              {
+                                type: "button",
+                                class: "btn btn-primary btn-sm",
+                                onclick: async () => {
+                                  if (!confirm(`${o.no} için ${fmtPrice(o.amount)} ödeme alındı mı?`)) return;
+                                  await act(
+                                    api(`/api/admin/orders/${o.id}/confirm`, { method: "POST", body: {} }),
+                                    "Ödeme onaylandı.",
+                                  );
+                                  load();
+                                },
+                              },
+                              "Ödeme alındı",
+                            ),
+                            h(
+                              "button",
+                              {
+                                type: "button",
+                                class: "btn btn-ghost btn-sm danger",
+                                onclick: async () => {
+                                  if (!confirm("Sipariş iptal edilsin mi?")) return;
+                                  await act(
+                                    api(`/api/admin/orders/${o.id}/cancel`, { method: "POST", body: {} }),
+                                    "Sipariş iptal edildi.",
+                                  );
+                                  load();
+                                },
+                              },
+                              "İptal",
+                            ),
+                          ]
+                        : null,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          )
+        : h("p", { class: "empty" }, "Bu bölümde sipariş yok."),
+    );
+  }
+  load().catch((err) => fill(wrap, h("p", { class: "empty" }, err.message)));
+  return wrap;
+}
+
+/* ---------- Promosyon kodları ---------- */
+
+function renderPromos() {
+  const wrap = h("div", { class: "page-body" }, loading());
+  const blank = {
+    code: "",
+    discountPercent: 100,
+    package: "quarterly",
+    maxUses: 100,
+    expiresAt: "",
+    active: true,
+    note: "",
+  };
+  let editing = { ...blank };
+
+  const load = async () => {
+    const { promos } = await api("/api/admin/promos");
+    draw(promos);
+  };
+  function draw(promos) {
+    const form = h(
+      "form",
+      {
+        class: "form-grid",
+        onsubmit: async (e) => {
+          e.preventDefault();
+          await act(api("/api/admin/promos", { method: "POST", body: editing }), "Kod kaydedildi.");
+          editing = { ...blank };
+          load();
+        },
+      },
+      field(editing, {
+        key: "code",
+        label: "Kod",
+        placeholder: "Örn. MAYA3AY",
+        help: "Harf ve rakam; büyük/küçük harf fark etmez.",
+      }),
+      field(editing, { key: "discountPercent", label: "İndirim (%)", type: "number", min: 1, max: 100 }),
+      field(editing, {
+        key: "package",
+        label: "Geçerli paket",
+        type: "select",
+        options: Object.entries(PACKAGE_LABELS),
+      }),
+      field(editing, { key: "maxUses", label: "Kullanım limiti", type: "number", help: "0 = sınırsız" }),
+      field(editing, { key: "expiresAt", label: "Son kullanma tarihi", inputType: "date" }),
+      field(editing, { key: "active", label: "Durum", type: "toggle", toggleLabel: "Aktif" }),
+      field(editing, { key: "note", label: "Not (kampanya adı vb.)", wide: true }),
+      h("div", { class: "is-wide" }, h("button", { class: "btn btn-primary", type: "submit" }, "Kodu kaydet")),
+    );
+    fill(
+      wrap,
+      card(
+        "Yeni kod / düzenle",
+        "Örnek: MAYA3AY · %100 · 3 Aylık · ilk 100 kişi. Her organizatör bir kodu bir kez kullanabilir.",
+        form,
+      ),
+      promos.length
+        ? h(
+            "div",
+            { class: "card table-wrap" },
+            h(
+              "table",
+              { class: "table" },
+              h(
+                "thead",
+                {},
+                h(
+                  "tr",
+                  {},
+                  ["Kod", "İndirim", "Paket", "Kullanım", "Son tarih", "Durum", ""].map((t) => h("th", {}, t)),
+                ),
+              ),
+              h(
+                "tbody",
+                {},
+                promos.map((p) =>
+                  h(
+                    "tr",
+                    {},
+                    h(
+                      "td",
+                      {},
+                      h("strong", {}, p.code),
+                      p.note ? h("small", { class: "muted" }, ` · ${p.note}`) : null,
+                    ),
+                    h("td", {}, `%${p.discountPercent}`),
+                    h("td", {}, PACKAGE_LABELS[p.package]),
+                    h("td", {}, `${p.usedCount} / ${p.maxUses || "∞"}`),
+                    h("td", {}, p.expiresAt ? fmtDay(p.expiresAt) : "—"),
+                    h("td", {}, statusChip(p.active ? "Aktif" : "Pasif", p.active ? "ok" : "muted")),
+                    h(
+                      "td",
+                      { class: "cell-actions" },
+                      h(
+                        "button",
+                        {
+                          type: "button",
+                          class: "btn btn-light btn-sm",
+                          onclick: () => ((editing = { ...p }), draw(promos), window.scrollTo(0, 0)),
+                        },
+                        "Düzenle",
+                      ),
+                      h(
+                        "button",
+                        {
+                          type: "button",
+                          class: "btn btn-ghost btn-sm danger",
+                          onclick: async () => {
+                            if (!confirm(`${p.code} silinsin mi?`)) return;
+                            await act(
+                              api(`/api/admin/promos/${encodeURIComponent(p.code)}`, { method: "DELETE" }),
+                              "Kod silindi.",
+                            );
+                            load();
+                          },
+                        },
+                        "Sil",
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          )
+        : h("p", { class: "empty" }, "Henüz promosyon kodu yok."),
+    );
+  }
+  load().catch((err) => fill(wrap, h("p", { class: "empty" }, err.message)));
+  return wrap;
+}
+
+/* ---------- Üyeler ---------- */
+
+let userTab = "organizer";
+let userQuery = "";
+
+function renderUsers() {
+  const wrap = h("div", { class: "page-body" }, loading());
+  let users = [];
+  const load = async () => {
+    users = (await api("/api/admin/users")).users;
+    draw();
+  };
+  function draw() {
+    const q = userQuery.toLocaleLowerCase("tr");
+    const items = users
+      .filter((u) => (u.role || "organizer") === userTab)
+      .filter((u) => !q || `${u.company} ${u.name} ${u.email} ${u.phone}`.toLocaleLowerCase("tr").includes(q));
+    const action = (label, cls, fn) => h("button", { type: "button", class: `btn btn-sm ${cls}`, onclick: fn }, label);
+    fill(
+      wrap,
+      h(
+        "div",
+        { class: "toolbar" },
+        tabs(
+          [
+            ["organizer", "Organizatörler", users.filter((u) => (u.role || "organizer") === "organizer").length],
+            ["client", "Doğrulanmış ziyaretçiler", users.filter((u) => u.role === "client").length],
+          ],
+          userTab,
+          (v) => ((userTab = v), draw()),
+        ),
+        h("input", {
+          class: "search-input",
+          type: "search",
+          placeholder: "Ad, firma, e-posta ya da telefon ara",
+          value: userQuery,
+          oninput: (e) => {
+            userQuery = e.target.value;
+            draw();
+            wrap.querySelector(".search-input")?.focus();
+          },
+        }),
+      ),
+      items.length
+        ? h(
+            "div",
+            { class: "card table-wrap" },
+            h(
+              "table",
+              { class: "table" },
+              h(
+                "thead",
+                {},
+                h(
+                  "tr",
+                  {},
+                  (userTab === "organizer"
+                    ? ["Firma", "İletişim", "T.C./VKN", "İlanlar", "Üyelik", "Durum", ""]
+                    : ["Telefon", "Doğrulama", "Durum", ""]
+                  ).map((t) => h("th", {}, t)),
+                ),
+              ),
+              h(
+                "tbody",
+                {},
+                items.map((u) => {
+                  const banned = u.status === "banned";
+                  const actions = h(
+                    "td",
+                    { class: "cell-actions" },
+                    action(banned ? "Engeli kaldır" : "Engelle", "btn-light", async () => {
+                      if (
+                        !banned &&
+                        !confirm(`${u.company || u.phone} engellensin mi? Yayındaki ilanları da kaldırılır.`)
+                      )
+                        return;
+                      await act(
+                        api(`/api/admin/users/${u.id}/ban`, { method: "POST", body: { banned: !banned } }),
+                        banned ? "Engel kaldırıldı." : "Üye engellendi.",
+                      );
+                      load();
+                    }),
+                    u.role !== "client"
+                      ? action("Şifre sıfırla", "btn-light", async () => {
+                          if (!confirm(`${u.company} için yeni geçici şifre oluşturulsun mu?`)) return;
+                          const { password } = await act(
+                            api(`/api/admin/users/${u.id}/reset-password`, { method: "POST", body: {} }),
+                          );
+                          prompt(
+                            `Geçici şifre (üyeye güvenli bir yoldan iletin; giriş yapınca değiştirmesini isteyin):`,
+                            password,
+                          );
+                        })
+                      : null,
+                    action("Sil", "btn-ghost danger", async () => {
+                      if (!confirm("Üye, ilanları ve takvim kayıtları kalıcı olarak silinsin mi?")) return;
+                      await act(api(`/api/admin/users/${u.id}`, { method: "DELETE" }), "Üye silindi.");
+                      load();
+                    }),
+                  );
+                  const status = statusChip(banned ? "Engelli" : "Aktif", banned ? "bad" : "ok");
+                  return userTab === "organizer"
+                    ? h(
+                        "tr",
+                        {},
+                        h("td", {}, h("strong", {}, u.company), h("br"), h("small", { class: "muted" }, u.name)),
+                        h(
+                          "td",
+                          {},
+                          h("a", { href: `mailto:${u.email}` }, u.email),
+                          h("br"),
+                          u.phone,
+                          u.phoneVerified ? statusChip("Onaylı", "ok") : null,
+                        ),
+                        h("td", {}, u.tcVkn || "—"),
+                        h(
+                          "td",
+                          {},
+                          `${u.listings.active} yayında · ${u.listings.pending} bekleyen · ${u.listings.total} toplam`,
+                        ),
+                        h("td", {}, fmtDay(u.createdAt)),
+                        h("td", {}, status),
+                        actions,
+                      )
+                    : h(
+                        "tr",
+                        {},
+                        h("td", {}, u.phone),
+                        h("td", {}, fmtDate(u.createdAt)),
+                        h("td", {}, status),
+                        actions,
+                      );
+                }),
+              ),
+            ),
+          )
+        : h("p", { class: "empty" }, "Kayıt yok."),
+    );
+  }
+  load().catch((err) => fill(wrap, h("p", { class: "empty" }, err.message)));
+  return wrap;
+}
+
+/* ---------- Kara liste ---------- */
+
+function renderBlacklist() {
+  const wrap = h("div", { class: "page-body" }, loading());
+  const load = async () => {
+    const { records } = await api("/api/admin/blacklist");
+    fill(
+      wrap,
+      h(
+        "p",
+        { class: "notice notice-info" },
+        `Organizatörler kötü niyetli müşterileri bildirir. ${state.content.security.blacklistThreshold} farklı organizatörden ihbar alan numara otomatik engellenir; engelli numaralar SMS doğrulaması yapamaz ve iletişim bilgilerini göremez.`,
+      ),
+      records.length
+        ? h(
+            "div",
+            { class: "mod-list" },
+            records.map((r) =>
+              h(
+                "article",
+                { class: "card blacklist-card" },
+                h(
+                  "div",
+                  { class: "mod-top" },
+                  h(
+                    "strong",
+                    {},
+                    `0${r.phone.slice(2, 5)} ${r.phone.slice(5, 8)} ${r.phone.slice(8, 10)} ${r.phone.slice(10)}`,
+                  ),
+                  statusChip(r.blocked ? "Engelli" : `${r.reports.length} ihbar`, r.blocked ? "bad" : "warn"),
+                ),
+                h(
+                  "ul",
+                  { class: "report-list" },
+                  r.reports.map((x) =>
+                    h(
+                      "li",
+                      {},
+                      h("strong", {}, x.company),
+                      ` · ${BLACKLIST_REASONS[x.reason] || x.reason} · ${fmtDay(x.createdAt)}`,
+                      x.note ? h("p", {}, x.note) : null,
+                    ),
+                  ),
+                ),
+                h(
+                  "div",
+                  { class: "mod-actions" },
+                  h(
+                    "button",
+                    {
+                      type: "button",
+                      class: "btn btn-light btn-sm",
+                      onclick: async () => {
+                        await act(
+                          api(`/api/admin/blacklist/${r.id}`, { method: "PATCH", body: { blocked: !r.blocked } }),
+                          r.blocked ? "Engel kaldırıldı." : "Numara engellendi.",
+                        );
+                        load();
+                      },
+                    },
+                    r.blocked ? "Engeli kaldır" : "Engelle",
+                  ),
+                  h(
+                    "button",
+                    {
+                      type: "button",
+                      class: "btn btn-ghost btn-sm danger",
+                      onclick: async () => {
+                        if (!confirm("Kayıt ve tüm ihbarlar silinsin mi?")) return;
+                        await act(api(`/api/admin/blacklist/${r.id}`, { method: "DELETE" }), "Kayıt silindi.");
+                        load();
+                      },
+                    },
+                    "Sil",
+                  ),
+                ),
+              ),
+            ),
+          )
+        : h("p", { class: "empty" }, "Henüz ihbar yok."),
+    );
+  };
+  load().catch((err) => fill(wrap, h("p", { class: "empty" }, err.message)));
+  return wrap;
+}
+
+/* ---------- Şikâyetler ---------- */
+
+function renderReports() {
+  const wrap = h("div", { class: "page-body" }, loading());
+  const load = async () => {
+    const { reports } = await api("/api/admin/reports");
+    fill(
+      wrap,
+      reports.length
+        ? h(
+            "div",
+            { class: "mod-list" },
+            reports.map((r) =>
+              h(
+                "article",
+                { class: `card report-card${r.status === "open" ? " is-open" : ""}` },
+                h(
+                  "div",
+                  { class: "mod-top" },
+                  statusChip(r.status === "open" ? "Açık" : "Kapatıldı", r.status === "open" ? "alert" : "muted"),
+                  h("small", {}, fmtDate(r.createdAt)),
+                ),
+                h("strong", {}, r.listingTitle),
+                h("span", {}, REPORT_REASONS[r.reason] || r.reason),
+                r.message ? h("p", { class: "message-text" }, r.message) : null,
+                h(
+                  "div",
+                  { class: "mod-actions" },
+                  h(
+                    "button",
+                    {
+                      type: "button",
+                      class: "btn btn-light btn-sm",
+                      onclick: () => {
+                        listingTab = "all";
+                        listingQuery = r.listingId;
+                        go("ilanlar");
+                      },
+                    },
+                    "İlanı incele",
+                  ),
+                  h(
+                    "button",
+                    {
+                      type: "button",
+                      class: "btn btn-light btn-sm",
+                      onclick: async () => {
+                        await act(
+                          api(`/api/admin/reports/${r.id}`, {
+                            method: "PATCH",
+                            body: { status: r.status === "open" ? "closed" : "open" },
+                          }),
+                        );
+                        load();
+                      },
+                    },
+                    r.status === "open" ? "Kapat" : "Yeniden aç",
+                  ),
+                  h(
+                    "button",
+                    {
+                      type: "button",
+                      class: "btn btn-ghost btn-sm danger",
+                      onclick: async () => {
+                        await act(api(`/api/admin/reports/${r.id}`, { method: "DELETE" }), "Şikâyet silindi.");
+                        load();
+                      },
+                    },
+                    "Sil",
+                  ),
+                ),
+              ),
+            ),
+          )
+        : h("p", { class: "empty" }, "Şikâyet yok."),
+    );
+  };
+  load().catch((err) => fill(wrap, h("p", { class: "empty" }, err.message)));
+  return wrap;
+}
+
+/* ---------- İçerik ve ayar sayfaları ---------- */
+
+const SECTION_NAMES = {
+  events: "Etkinlikler (Ne kutluyorsunuz?)",
+  categories: "Hizmet kategorileri",
+  featured: "Vitrin",
+  recent: "Son eklenen ilanlar",
+  cities: "Şehirler",
+  process: "Nasıl çalışır",
+  vendor: "Organizatör çağrısı",
+  faq: "Sıkça sorulanlar",
+};
+
+const PAGES = {
+  panel: { title: "Genel bakış", render: renderDashboard },
+  ilanlar: {
+    title: "İlanlar",
+    description: "Onay kuyruğu ve tüm ilanlar. Ödemesi onaylanmamış ilan yayına alınamaz.",
+    render: renderListingsAdmin,
   },
+  odemeler: {
+    title: "Ödemeler",
+    description: "Havale/EFT ile gelen paket ve doping ödemelerini burada onaylayın.",
+    render: renderOrdersAdmin,
+  },
+  promosyonlar: {
+    title: "Promosyon kodları",
+    description: "Sosyal medya kampanyaları için indirim kodları.",
+    render: renderPromos,
+  },
+  uyeler: { title: "Üyeler", render: renderUsers },
+  karaliste: { title: "Kara liste", render: renderBlacklist },
+  sikayetler: { title: "Şikâyetler", description: "Ziyaretçilerin ilan bildirimleri.", render: renderReports },
+  mesajlar: { title: "Mesajlar", description: "İletişim sayfasından gelen mesajlar.", render: renderMessages },
 
   anasayfa: {
-    title: "Karşılama alanı",
-    description: "Ziyaretçilerin siteye girince ilk gördüğü bölüm.",
+    title: "Ana sayfa",
     render: () => [
       card(
-        "Metinler",
+        "Karşılama alanı",
         null,
         formGrid(state.content.hero, [
-          { key: "eyebrow", label: "Üst satır", wide: true, help: "Başlığın üstündeki küçük, büyük harfli satır." },
+          { key: "eyebrow", label: "Üst satır", wide: true },
           { key: "title", label: "Başlık" },
-          { key: "highlight", label: "Vurgulu başlık", help: "Başlığın altında italik ve renkli görünen kısım." },
+          { key: "highlight", label: "Vurgulu başlık", help: "Başlığın altında renkli görünen kısım." },
           { key: "subtitle", label: "Açıklama", type: "textarea", rows: 3, wide: true },
-          { key: "primaryCta", label: "Ana buton yazısı" },
-          { key: "secondaryCta", label: "İkinci buton yazısı" },
-        ]),
-      ),
-      card(
-        "Görsel ve etiketler",
-        null,
-        formGrid(state.content.hero, [
           {
             key: "image",
             label: "Kemer görseli",
             type: "image",
-            help: "Dikey (4:5) bir fotoğraf en iyi sonucu verir. Boş bırakılırsa balon çizimi görünür.",
-          },
-          {
-            key: "badges",
-            label: "Süzülen etiketler",
-            type: "list",
-            placeholder: "Örn. Kişiye özel tasarım",
-            help: "Görselin çevresindeki küçük kartlar (ilk 3 tanesi gösterilir).",
+            wide: true,
+            help: "Dikey (4:5) bir fotoğraf önerilir. Boşsa balon çizimi görünür.",
           },
         ]),
+      ),
+      card(
+        "Organizatör çağrısı maddeleri",
+        null,
+        formGrid(state.content, [{ key: "vendorPoints", label: "Maddeler", type: "list", wide: true }]),
+      ),
+      ...Object.entries(SECTION_NAMES).map(([key, name]) =>
+        card(name, "Bölüm başlığı", formGrid(state.content.sections[key], SECTION_FIELDS)),
       ),
     ],
   },
 
-  hizmetler: {
-    title: "Hizmetler",
-    description: "Sunduğunuz organizasyon türleri. Sıralamayı oklarla değiştirebilirsiniz.",
+  kategoriler: {
+    title: "Hizmet kategorileri",
+    description: "Organizatör türleri. Kademe (Tier), ilan paketi fiyatını belirler.",
     render: () => [
-      sectionCard("services"),
       card(
-        "Hizmet listesi",
-        "Görsel eklemezseniz seçtiğiniz ikon gösterilir.",
-        listEditor("services", {
-          label: "Hizmet",
-          titleOf: (s) => s.title,
+        "Kategoriler",
+        'Bir kategoriyi silerseniz o kategorideki ilanlar "—" olarak görünür; önce ilanları taşımanız önerilir.',
+        listEditor("categories", {
+          label: "Kategori",
+          titleOf: (c) => (c.name ? `${c.name} · Tier ${c.tier}` : ""),
           fields: [
-            { key: "title", label: "Hizmet adı" },
+            { key: "name", label: "Ad" },
             {
-              key: "price",
-              label: "Fiyat (isteğe bağlı)",
-              placeholder: "Örn. 3.500 ₺'den başlayan",
-              help: "Boş bırakılırsa fiyat gösterilmez.",
+              key: "tier",
+              label: "Fiyat kademesi",
+              type: "select",
+              number: true,
+              options: [
+                [1, "Tier 1 · Üst segment"],
+                [2, "Tier 2 · Orta segment"],
+                [3, "Tier 3 · Mikro segment"],
+              ],
             },
-            { key: "text", label: "Kısa açıklama", type: "textarea", rows: 3, wide: true },
+            {
+              key: "slug",
+              label: "Adres",
+              help: "/ilanlar?kategori=... Boş bırakılırsa addan üretilir. Yayındaki kategoride değiştirmeyin.",
+            },
             { key: "icon", label: "İkon", type: "icon", wide: true },
-            { key: "image", label: "Görsel (isteğe bağlı)", type: "image", wide: true },
+          ],
+        }),
+      ),
+    ],
+  },
+
+  etkinlikler: {
+    title: "Etkinlik türleri",
+    description: '"Ne kutluyorsunuz?" kutuları ve ilanlardaki etkinlik etiketleri.',
+    render: () => [
+      card(
+        "Etkinlikler",
+        null,
+        listEditor("events", {
+          label: "Etkinlik",
+          titleOf: (e) => e.name,
+          fields: [
+            { key: "name", label: "Ad" },
+            { key: "slug", label: "Adres", help: "/ilanlar?etkinlik=... Boş bırakılırsa addan üretilir." },
+            { key: "icon", label: "İkon", type: "icon", wide: true },
           ],
         }),
       ),
@@ -667,10 +1677,8 @@ const PAGES = {
   },
 
   surec: {
-    title: "Çalışma adımları",
-    description: '"Nasıl çalışıyoruz?" bölümündeki numaralı adımlar.',
+    title: "Nasıl çalışır",
     render: () => [
-      sectionCard("process"),
       card(
         "Adımlar",
         null,
@@ -686,117 +1694,9 @@ const PAGES = {
     ],
   },
 
-  paketler: {
-    title: "Paketler",
-    description: 'Fiyat alanını boş bırakırsanız "Size özel teklif" yazar.',
-    render: () => [
-      sectionCard("packages"),
-      card(
-        "Paket listesi",
-        null,
-        listEditor("packages", {
-          label: "Paket",
-          titleOf: (p) => p.name,
-          fields: [
-            { key: "name", label: "Paket adı" },
-            { key: "price", label: "Fiyat", placeholder: "Örn. 4.500 ₺" },
-            { key: "note", label: "Etiket", placeholder: "Örn. En çok tercih edilen" },
-            { key: "featured", label: "Öne çıkar", type: "toggle", toggleLabel: "Koyu renkli, vurgulu kart" },
-            {
-              key: "features",
-              label: "Pakete dahil olanlar",
-              type: "list",
-              wide: true,
-              placeholder: "Örn. Balon takı",
-            },
-          ],
-        }),
-      ),
-    ],
-  },
-
-  galeri: {
-    title: "Galeri",
-    description: "Organizasyon fotoğraflarınız. Birden fazla fotoğrafı aynı anda seçebilirsiniz.",
-    render: () => [
-      sectionCard("gallery"),
-      card(
-        "Fotoğraflar",
-        "Kategori yazarsanız sitede filtre düğmeleri çıkar (örn. Doğum günü, Nişan).",
-        galleryEditor(),
-      ),
-    ],
-  },
-
-  hakkimizda: {
-    title: "Hakkımızda",
-    render: () => [
-      card(
-        "Metin ve görsel",
-        null,
-        formGrid(state.content.sections.about, [
-          { key: "eyebrow", label: "Üst başlık" },
-          { key: "title", label: "Başlık" },
-          {
-            key: "text",
-            label: "Metin",
-            type: "textarea",
-            rows: 8,
-            wide: true,
-            help: "Paragrafları boş bir satırla ayırın.",
-          },
-          { key: "image", label: "Görsel", type: "image", wide: true, help: "Boş bırakılırsa logonuz gösterilir." },
-        ]),
-      ),
-      card(
-        "Rakamlar (isteğe bağlı)",
-        'Örn. "300+" / "Mutlu kutlama". Yalnızca gerçek rakamlar ekleyin.',
-        listEditor("stats", {
-          label: "Rakam",
-          titleOf: (s) => [s.value, s.label].filter(Boolean).join(" · "),
-          emptyText: "Rakam eklenmedi; bu alan sitede gizli.",
-          fields: [
-            { key: "value", label: "Değer", placeholder: "Örn. 300+" },
-            { key: "label", label: "Açıklama", placeholder: "Örn. Mutlu kutlama" },
-          ],
-        }),
-      ),
-    ],
-  },
-
-  yorumlar: {
-    title: "Yorumlar",
-    description: "Müşterilerinizin size ilettiği gerçek yorumlar. Liste boşsa bölüm sitede görünmez.",
-    render: () => [
-      sectionCard("testimonials"),
-      card(
-        "Yorum listesi",
-        null,
-        listEditor("testimonials", {
-          label: "Yorum",
-          titleOf: (t) => t.name,
-          emptyText: "Henüz yorum eklenmedi; bu bölüm sitede gizli.",
-          fields: [
-            { key: "name", label: "Müşteri adı", placeholder: "Örn. Ayşe K." },
-            { key: "event", label: "Organizasyon", placeholder: "Örn. Nişan organizasyonu" },
-            {
-              key: "rating",
-              label: "Puan",
-              type: "select",
-              number: true,
-              options: [5, 4, 3, 2, 1].map((n) => [n, "★".repeat(n)]),
-            },
-            { key: "text", label: "Yorum", type: "textarea", rows: 3, wide: true },
-          ],
-        }),
-      ),
-    ],
-  },
-
   sss: {
     title: "Sıkça sorulanlar",
     render: () => [
-      sectionCard("faq"),
       card(
         "Sorular",
         null,
@@ -812,189 +1712,196 @@ const PAGES = {
     ],
   },
 
+  fiyatlar: {
+    title: "Fiyatlandırma",
+    description: "İlan paketleri (kademeye göre), dopingler ve havale/EFT bilgileri.",
+    render: () => {
+      const p = state.content.pricing;
+      return [
+        card(
+          "Ücretsiz mod",
+          "Açıkken organizatörler paket ve doping için ödeme yapmaz (lansman dönemi).",
+          formGrid(p, [{ key: "freeMode", label: "Durum", type: "toggle", toggleLabel: "Tüm paketler ücretsiz" }]),
+        ),
+        ...["t1", "t2", "t3"].map((t, i) =>
+          card(
+            `Tier ${i + 1} · ${p.tiers[t].name}`,
+            state.content.categories
+              .filter((c) => c.tier === i + 1)
+              .map((c) => c.name)
+              .join(", ") || "Bu kademede kategori yok.",
+            formGrid(p.tiers[t], [
+              { key: "name", label: "Kademe adı" },
+              { key: "monthly", label: "Aylık (₺)", type: "number" },
+              { key: "quarterly", label: "3 aylık (₺)", type: "number" },
+              { key: "yearly", label: "Yıllık (₺)", type: "number", help: "PRD: 2 ay bedava" },
+            ]),
+          ),
+        ),
+        card(
+          "Dopingler",
+          "Süre gün olarak; fiyat her satın alma içindir.",
+          h(
+            "div",
+            { class: "doping-cards" },
+            Object.entries(DOPING_LABELS).map(([k, label]) =>
+              h(
+                "div",
+                { class: "sub-card" },
+                h("strong", {}, label),
+                formGrid(p.dopings[k], [
+                  { key: "price", label: "Fiyat (₺)", type: "number" },
+                  { key: "days", label: "Süre (gün)", type: "number", min: 1 },
+                ]),
+              ),
+            ),
+          ),
+        ),
+        card(
+          "Havale / EFT bilgileri",
+          "Kartla ödeme altyapısı (iyzico/PayTR) bağlanana kadar organizatörler bu hesaba ödeme yapar.",
+          formGrid(p.bank, [
+            { key: "bankName", label: "Banka" },
+            { key: "holder", label: "Alıcı adı" },
+            { key: "iban", label: "IBAN", wide: true, placeholder: "TR00 0000 0000 0000 0000 0000 00" },
+            { key: "note", label: "Ödeme notu", wide: true },
+          ]),
+        ),
+      ];
+    },
+  },
+
+  guvenlik: {
+    title: "Güvenlik & SMS",
+    render: () => {
+      const sms = state.summary?.sms;
+      return [
+        h(
+          "p",
+          { class: `notice notice-${sms?.configured && !sms?.testMode ? "ok" : "warn"}` },
+          !sms
+            ? "SMS durumu alınamadı."
+            : !sms.configured
+              ? "SMS sağlayıcısı bağlı değil: iletişim bariyeri devre dışı. Netlify'da SMS_PROVIDER=netgsm, NETGSM_USERCODE, NETGSM_PASSWORD ve NETGSM_HEADER ortam değişkenlerini tanımlayın."
+              : sms.testMode
+                ? "SMS test modunda (SMS_TEST_MODE=1): kodlar gönderilmez, sunucu kaydına yazılır."
+                : "SMS sağlayıcısı bağlı.",
+        ),
+        card(
+          "İletişim bariyeri ve kara liste",
+          null,
+          formGrid(state.content.security, [
+            {
+              key: "contactGate",
+              label: "İletişim bariyeri",
+              type: "toggle",
+              toggleLabel: "Telefon/WhatsApp için SMS doğrulaması zorunlu",
+              help: "SMS sağlayıcısı bağlı değilse otomatik olarak devre dışı kalır.",
+            },
+            {
+              key: "blacklistThreshold",
+              label: "Engelleme eşiği",
+              type: "number",
+              min: 1,
+              max: 10,
+              help: "Kaç farklı organizatörden ihbar alan numara engellensin (PRD: 2).",
+            },
+          ]),
+        ),
+      ];
+    },
+  },
+
   iletisim: {
     title: "İletişim bilgileri",
-    description: "Boş bıraktığınız bilgiler sitede gösterilmez.",
+    description: "Sitenin altında ve İletişim sayfasında görünür. Boş alanlar gösterilmez.",
     render: () => [
       card(
-        "Telefon ve WhatsApp",
+        "Bilgiler",
         null,
         formGrid(state.content.settings, [
-          { key: "phone", label: "Telefon", inputType: "tel", placeholder: "0532 000 00 00" },
-          {
-            key: "whatsapp",
-            label: "WhatsApp numarası",
-            inputType: "tel",
-            placeholder: "0532 000 00 00",
-            help: "Doluysa sitede yeşil WhatsApp butonu çıkar.",
-          },
-          {
-            key: "whatsappMessage",
-            label: "WhatsApp hazır mesajı",
-            wide: true,
-            help: "Ziyaretçi butona basınca mesaj kutusuna yazılı gelen metin.",
-          },
-        ]),
-      ),
-      card(
-        "Diğer bilgiler",
-        null,
-        formGrid(state.content.settings, [
+          { key: "phone", label: "Telefon", inputType: "tel" },
+          { key: "whatsapp", label: "WhatsApp", inputType: "tel" },
+          { key: "whatsappMessage", label: "WhatsApp hazır mesajı", wide: true },
           { key: "email", label: "E-posta", inputType: "email" },
-          { key: "workingHours", label: "Çalışma saatleri", placeholder: "Örn. Her gün 09:00 – 21:00" },
-          { key: "address", label: "Adres", wide: true, help: "Sitede Google Haritalar bağlantısı olarak gösterilir." },
-          {
-            key: "serviceArea",
-            label: "Hizmet bölgesi",
-            wide: true,
-            placeholder: "Örn. İstanbul Anadolu ve Avrupa yakası",
-          },
+          { key: "workingHours", label: "Çalışma saatleri" },
+          { key: "address", label: "Adres", wide: true },
         ]),
       ),
       card(
         "Sosyal medya",
-        "Kullanıcı adı (@ile ya da @'siz) veya tam bağlantı yazabilirsiniz.",
+        "Kullanıcı adı ya da tam bağlantı.",
         formGrid(state.content.settings, [
-          { key: "instagram", label: "Instagram", placeholder: "@organizasyonsepeti" },
+          { key: "instagram", label: "Instagram" },
           { key: "tiktok", label: "TikTok" },
           { key: "facebook", label: "Facebook" },
         ]),
       ),
-      sectionCard("contact"),
     ],
   },
 
-  gorunum: {
-    title: "Görünüm & SEO",
+  seo: {
+    title: "Marka & SEO",
     render: () => [
       card(
         "Marka",
         null,
         formGrid(state.content.settings, [
           { key: "siteName", label: "Site adı" },
-          { key: "tagline", label: "Kısa slogan", help: "Alt bilgide görünür." },
-          { key: "theme", label: "Renk teması", type: "theme", wide: true },
+          { key: "tagline", label: "Kısa slogan" },
         ]),
       ),
       card(
         "Arama motorları ve paylaşım",
-        "Google sonuçlarında ve WhatsApp/Instagram'da bağlantı paylaşıldığında görünen bilgiler.",
+        null,
         formGrid(state.content.settings, [
-          { key: "seoTitle", label: "Sayfa başlığı", wide: true, help: "60 karakter civarı idealdir." },
-          {
-            key: "seoDescription",
-            label: "Açıklama",
-            type: "textarea",
-            rows: 3,
-            wide: true,
-            help: "150–160 karakter civarı idealdir.",
-          },
-          {
-            key: "ogImage",
-            label: "Paylaşım görseli",
-            type: "image",
-            wide: true,
-            help: "Yatay (1200×630) bir görsel önerilir. Boşsa karşılama görseli kullanılır.",
-          },
+          { key: "seoTitle", label: "Sayfa başlığı", wide: true },
+          { key: "seoDescription", label: "Açıklama", type: "textarea", rows: 3, wide: true },
+          { key: "ogImage", label: "Paylaşım görseli", type: "image", wide: true, help: "Yatay 1200×630 önerilir." },
           { key: "siteUrl", label: "Site adresi", wide: true, inputType: "url" },
         ]),
       ),
     ],
   },
 
-  medya: {
-    title: "Medya kütüphanesi",
-    description: "Yüklediğiniz tüm görseller. Sitede kullanılanlar silinemez.",
-    render: renderMedia,
-  },
-
-  hesap: {
-    title: "Hesap & yedekler",
-    render: renderAccount,
-  },
-};
-
-/* ---------- Genel bakış ---------- */
-
-function renderDashboard() {
-  const c = state.content;
-  const s = c.settings;
-  const unread = state.messages.filter((m) => !m.read).length;
-  const photos = c.gallery.filter((g) => g.image).length;
-  const tasks = [
-    [Boolean(s.phone || s.whatsapp), "Telefon veya WhatsApp numarası ekleyin", "iletisim"],
-    [Boolean(s.instagram), "Instagram hesabınızı ekleyin", "iletisim"],
-    [Boolean(c.hero.image), "Karşılama alanına bir fotoğraf koyun", "anasayfa"],
-    [photos >= 6, `Galeriye en az 6 fotoğraf yükleyin (şu an ${photos})`, "galeri"],
-    [c.services.some((x) => x.image), "Hizmetlere fotoğraf ekleyin", "hizmetler"],
-    [c.testimonials.length > 0, "Müşteri yorumlarından birkaçını ekleyin", "yorumlar"],
-  ];
-  const done = tasks.filter(([ok]) => ok).length;
-
-  const stat = (value, label, page) =>
-    h(
-      "button",
-      { type: "button", class: "stat", onclick: () => go(page) },
-      h("strong", {}, value),
-      h("span", {}, label),
-    );
-
-  return [
-    h(
-      "div",
-      { class: "stats-row" },
-      stat(unread, "Okunmamış mesaj", "mesajlar"),
-      stat(state.messages.length, "Toplam talep", "mesajlar"),
-      stat(c.services.length, "Hizmet", "hizmetler"),
-      stat(photos, "Galeri fotoğrafı", "galeri"),
-    ),
-    h(
-      "div",
-      { class: "dash-grid" },
+  yasal: {
+    title: "Yasal metinler",
+    render: () => [
+      h(
+        "p",
+        { class: "notice notice-warn" },
+        "Bu metinler genel şablondur. Yayına almadan önce bir hukukçuya kontrol ettirmeniz önerilir.",
+      ),
       card(
-        "Siteyi tamamlayın",
-        `${done} / ${tasks.length} adım tamamlandı`,
-        h("div", { class: "progress" }, h("span", { style: `width:${(done / tasks.length) * 100}%` })),
+        "Yazım kuralları",
+        '{siteName}, {phone}, {email}, {address} ve {contact} yazdığınız yerlere bilgiler otomatik gelir. "## " ile başlayan satırlar başlık, "- " ile başlayanlar madde olur.',
         h(
-          "ul",
-          { class: "checklist" },
-          tasks.map(([ok, text, page]) =>
-            h(
-              "li",
-              { class: ok ? "is-done" : "" },
-              h("button", { type: "button", onclick: () => go(page) }, ic(ok ? "check" : "chevron"), text),
-            ),
+          "div",
+          { class: "toolbar" },
+          h("a", { class: "btn btn-light btn-sm", href: "/kvkk", target: "_blank" }, "KVKK sayfası ↗"),
+          h(
+            "a",
+            { class: "btn btn-light btn-sm", href: "/kullanim-kosullari", target: "_blank" },
+            "Kullanım koşulları ↗",
           ),
         ),
       ),
       card(
-        "Son talepler",
+        "KVKK aydınlatma metni",
         null,
-        state.messages.length
-          ? h(
-              "ul",
-              { class: "recent" },
-              state.messages
-                .slice(0, 5)
-                .map((m) =>
-                  h(
-                    "li",
-                    {},
-                    h(
-                      "button",
-                      { type: "button", onclick: () => go("mesajlar") },
-                      h("strong", {}, m.name),
-                      h("span", {}, [m.eventType, fmtDate(m.createdAt)].filter(Boolean).join(" · ")),
-                      !m.read && h("em", {}, "Yeni"),
-                    ),
-                  ),
-                ),
-            )
-          : h("p", { class: "empty" }, "Henüz form talebi yok. Gelen talepler burada görünecek."),
+        formGrid(state.content.legal, [{ key: "kvkk", label: "Metin", type: "textarea", rows: 22, wide: true }]),
       ),
-    ),
-  ];
-}
+      card(
+        "Kullanım koşulları",
+        null,
+        formGrid(state.content.legal, [{ key: "terms", label: "Metin", type: "textarea", rows: 22, wide: true }]),
+      ),
+    ],
+  },
+
+  medya: { title: "Medya kütüphanesi", description: "Panelden yüklediğiniz görseller.", render: renderMedia },
+  hesap: { title: "Hesap & yedekler", render: renderAccount },
+};
 
 /* ---------- Mesajlar ---------- */
 
@@ -1169,123 +2076,6 @@ function renderMessages() {
     ),
     list,
   ];
-}
-
-/* ---------- Galeri ---------- */
-
-function galleryEditor() {
-  const wrap = h("div", { class: "gallery-editor" });
-  const items = state.content.gallery;
-  const categories = h("datalist", { id: "gallery-categories" });
-
-  const render = () => {
-    fill(empty, items.length ? null : "Galeri boş; bu bölüm sitede gizli. İlk fotoğraflarınızı yükleyin.");
-    fill(
-      categories,
-      ...[...new Set(items.map((g) => g.category).filter(Boolean))].map((c) => h("option", { value: c })),
-    );
-    fill(
-      grid,
-      ...items.map((item, i) =>
-        h(
-          "figure",
-          { class: "g-card" },
-          h(
-            "div",
-            { class: "g-thumb" },
-            h("img", { src: item.image, alt: "", loading: "lazy" }),
-            h(
-              "div",
-              { class: "g-actions" },
-              h(
-                "button",
-                {
-                  type: "button",
-                  class: "icon-btn",
-                  "aria-label": "Sola taşı",
-                  disabled: i === 0,
-                  onclick: () => (items.splice(i - 1, 0, items.splice(i, 1)[0]), markDirty(), render()),
-                },
-                ic("chevron", "icon rot-left"),
-              ),
-              h(
-                "button",
-                {
-                  type: "button",
-                  class: "icon-btn",
-                  "aria-label": "Sağa taşı",
-                  disabled: i === items.length - 1,
-                  onclick: () => (items.splice(i + 1, 0, items.splice(i, 1)[0]), markDirty(), render()),
-                },
-                ic("chevron"),
-              ),
-              h(
-                "button",
-                {
-                  type: "button",
-                  class: "icon-btn danger",
-                  "aria-label": "Galeriden kaldır",
-                  onclick: () => (items.splice(i, 1), markDirty(), render()),
-                },
-                ic("close"),
-              ),
-            ),
-          ),
-          h("input", {
-            value: item.caption,
-            placeholder: "Açıklama (isteğe bağlı)",
-            "aria-label": "Açıklama",
-            oninput: (e) => setValue(item, "caption", e.target.value),
-          }),
-          h("input", {
-            value: item.category,
-            placeholder: "Kategori",
-            list: "gallery-categories",
-            "aria-label": "Kategori",
-            oninput: (e) => setValue(item, "category", e.target.value),
-            onchange: render,
-          }),
-        ),
-      ),
-    );
-  };
-
-  const status = h("span", { class: "upload-status" });
-  const uploadBtn = h(
-    "button",
-    {
-      type: "button",
-      class: "btn btn-primary",
-      onclick: async () => {
-        const files = await pickFiles({ multiple: true });
-        if (!files.length) return;
-        uploadBtn.disabled = true;
-        let ok = 0;
-        for (const [n, file] of files.entries()) {
-          status.textContent = `Yükleniyor ${n + 1} / ${files.length}…`;
-          try {
-            items.push({ id: newId(), image: await uploadImage(file), caption: "", category: "" });
-            ok++;
-            markDirty();
-            render();
-          } catch (err) {
-            toast(err.message, "error");
-          }
-        }
-        uploadBtn.disabled = false;
-        status.textContent = "";
-        if (ok) toast(`${ok} fotoğraf eklendi. Yayına almak için Kaydet'e basın.`, "success");
-      },
-    },
-    ic("camera"),
-    "Fotoğraf yükle",
-  );
-
-  const grid = h("div", { class: "g-grid" });
-  const empty = h("p", { class: "empty" });
-  render();
-  wrap.append(h("div", { class: "toolbar" }, uploadBtn, status), categories, grid, empty);
-  return wrap;
 }
 
 /* ---------- Medya ---------- */
@@ -1486,7 +2276,7 @@ const app = document.getElementById("app");
 function logoMark() {
   return h("span", {
     class: "brand-mark",
-    html: '<svg viewBox="0 0 40 40" aria-hidden="true"><path d="M14 16.5 18 25M24 15.5 21 25M30.5 20 25 25" stroke="currentColor" stroke-width="1" fill="none"/><circle cx="14" cy="11" r="6" fill="#eaa9b8"/><circle cx="24" cy="8.5" r="7" fill="#a8475f"/><circle cx="30.5" cy="16" r="4.6" fill="#dcb67e"/><path d="M7.5 24.5h25l-3 10.6a2 2 0 0 1-1.9 1.4H12.4a2 2 0 0 1-1.9-1.4L7.5 24.5Z" fill="currentColor"/></svg>',
+    html: '<svg viewBox="0 0 40 40" aria-hidden="true"><path d="M14 16.5 18 25M24 15.5 21 25M30.5 20 25 25" stroke="currentColor" stroke-width="1" fill="none"/><circle cx="14" cy="11" r="6" fill="#a29bfe"/><circle cx="24" cy="8.5" r="7" fill="#6c5ce7"/><circle cx="30.5" cy="16" r="4.6" fill="#ff7675"/><path d="M7.5 24.5h25l-3 10.6a2 2 0 0 1-1.9 1.4H12.4a2 2 0 0 1-1.9-1.4L7.5 24.5Z" fill="currentColor"/></svg>',
   });
 }
 
@@ -1684,7 +2474,8 @@ async function startApp() {
     ),
   );
   renderPage();
-  loadMessages().then(() => state.page === "panel" && renderPage());
+  loadMessages();
+  loadSummary();
 }
 
 window.addEventListener("hashchange", () => {

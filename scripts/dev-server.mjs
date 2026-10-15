@@ -63,6 +63,8 @@ const MIME = {
   ".txt": "text/plain; charset=utf-8",
   ".xml": "application/xml",
   ".json": "application/json",
+  ".webmanifest": "application/manifest+json",
+  ".jpeg": "image/jpeg",
 };
 
 async function serveStatic(pathname, res) {

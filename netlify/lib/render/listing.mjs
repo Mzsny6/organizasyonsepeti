@@ -72,9 +72,31 @@ function reportDialog(listing) {
   </dialog>`;
 }
 
+// İletişim bariyeri: telefon numarası SMS koduyla doğrulanınca iletişim bilgileri açılır.
+function otpDialog() {
+  return `<dialog class="dialog" id="dogrulama">
+    <form class="dialog-form" data-otp-form novalidate>
+      <header class="dialog-head">
+        <h2>Telefonunuzu doğrulayın</h2>
+        <button type="button" class="icon-btn" data-close-dialog aria-label="Kapat">${icon("close")}</button>
+      </header>
+      <p class="dialog-lead">Sahte aramaları ve botları engellemek için organizatörün iletişim bilgileri, numaranızı SMS koduyla doğruladıktan sonra görünür. Bu işlem bir kez yapılır.</p>
+      <label class="field" data-step="phone"><span>Cep telefonunuz</span><input name="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="05xx xxx xx xx" required></label>
+      <label class="field" data-step="code" hidden><span>SMS ile gelen 6 haneli kod</span><input name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="••••••"></label>
+      <p class="form-status" role="status" aria-live="polite"></p>
+      <div class="dialog-actions">
+        <button type="button" class="btn btn-ghost" data-close-dialog>Vazgeç</button>
+        <button type="submit" class="btn btn-primary" data-otp-submit>Kod gönder</button>
+      </div>
+      <p class="form-note">Numaranız organizatörlerle paylaşılmaz. <a href="/kvkk" target="_blank">KVKK Aydınlatma Metni</a></p>
+    </form>
+  </dialog>`;
+}
+
 export function renderListing(c, listing, owner, index) {
   const cats = categoryMap(c);
   const cat = cats.get(listing.category);
+  const eventList = c.events.filter((e) => (listing.events || []).includes(e.id));
   const path = listingPath(listing);
   // Aynı kategorideki ilanlar (önce aynı şehir), yetmezse aynı şehirdeki diğer ilanlar
   const others = searchIndex(index, { sort: "yeni" }).items.filter((x) => x.id !== listing.id);
@@ -101,7 +123,26 @@ export function renderListing(c, listing, owner, index) {
         <article class="listing-description">
           <h2>İlan açıklaması</h2>
           <div class="prose">${paragraphs(listing.description)}</div>
+          ${
+            eventList.length
+              ? `<div class="event-chips"><h3>Hizmet verdiği etkinlikler</h3>${eventList
+                  .map(
+                    (e) => `<a class="pill" href="/ilanlar?etkinlik=${esc(e.slug)}">${icon(e.icon)}${esc(e.name)}</a>`,
+                  )
+                  .join("")}</div>`
+              : ""
+          }
         </article>
+        ${
+          listing.showCalendar
+            ? `<section class="busy-calendar" data-busy-calendar data-listing="${esc(listing.id)}">
+                <h2>${icon("calendar")}Müsaitlik takvimi</h2>
+                <p class="busy-legend"><span class="dot is-busy"></span>Dolu <span class="dot"></span>Müsait olabilir</p>
+                <div class="busy-months"><p class="busy-loading">Takvim yükleniyor…</p></div>
+                <p class="busy-note">Kesin müsaitlik için organizatörle iletişime geçin.</p>
+              </section>`
+            : ""
+        }
       </div>
       <aside class="listing-side">
         <div class="side-card">
@@ -111,11 +152,12 @@ export function renderListing(c, listing, owner, index) {
             <span class="vendor-avatar" aria-hidden="true">${esc(listing.company.slice(0, 1).toLocaleUpperCase("tr"))}</span>
             <div>
               <strong>${esc(listing.company)}</strong>
+              ${owner?.phoneVerified ? `<span class="verified">${icon("check")}Onaylı hesap</span>` : ""}
               ${owner ? `<small>${monthYear(owner.createdAt)} tarihinden beri üye</small>` : ""}
             </div>
           </div>
           <div class="contact-actions" data-contact data-listing="${esc(listing.id)}" data-wa-text="${esc(whatsappText)}">
-            <button type="button" class="btn btn-primary btn-block" data-reveal-phone>${icon("phone")}<span>Telefonu göster</span></button>
+            <button type="button" class="btn btn-action btn-block" data-reveal-phone>${icon("phone")}<span>Hemen Ara</span></button>
             ${listing.whatsapp ? `<button type="button" class="btn btn-whatsapp btn-block" data-open-whatsapp>${icon("whatsapp")}WhatsApp'tan yaz</button>` : ""}
             ${listing.instagram ? `<a class="btn btn-light btn-block" href="https://instagram.com/${esc(listing.instagram)}" target="_blank" rel="noopener nofollow">${icon("instagram")}@${esc(listing.instagram)}</a>` : ""}
             <p class="form-status" role="status" aria-live="polite"></p>
@@ -145,7 +187,8 @@ export function renderListing(c, listing, owner, index) {
         </section>`
       : ""
   }
-  ${reportDialog(listing)}`;
+  ${reportDialog(listing)}
+  ${otpDialog()}`;
 
   const ld = {
     "@context": "https://schema.org",

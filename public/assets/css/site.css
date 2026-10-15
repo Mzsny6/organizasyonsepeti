@@ -1,98 +1,37 @@
 /* Organizasyon Sepeti — site stilleri */
 
-:root,
-[data-theme="rose"] {
-  --bg: #fbf7f4;
-  --bg-tint: #f6ece7;
-  --surface: #ffffff;
-  --ink: #2c1d24;
-  --ink-soft: #5b4851;
-  --muted: #8a7680;
-  --line: #ecdfd9;
-  --accent: #a8475f;
-  --accent-hover: #8e3a50;
-  --accent-soft: #f6e4e7;
-  --arch: linear-gradient(170deg, #f9e9e6 0%, #f2d8d2 100%);
-  --b1: #eaa9b8;
-  --b1-deep: #c56a82;
-  --b2: #f5d8ca;
-  --b2-deep: #d9a28b;
-  --b3: #dcb67e;
-  --b3-deep: #ae8340;
-  --b4: #fff5ef;
-  --b4-deep: #e2cdc1;
-}
-
-[data-theme="champagne"] {
-  --bg: #fbf8f2;
-  --bg-tint: #f4ece0;
-  --ink: #2b241c;
-  --ink-soft: #5a4f42;
-  --muted: #8a7d6d;
-  --line: #ebe1d2;
-  --accent: #96682d;
-  --accent-hover: #7c5523;
-  --accent-soft: #f3e8d6;
-  --arch: linear-gradient(170deg, #f8efe1 0%, #efdfc6 100%);
-  --b1: #ead2a8;
-  --b1-deep: #c8a160;
-  --b2: #f7e7d3;
-  --b2-deep: #d9bc95;
-  --b3: #cfa66c;
-  --b3-deep: #9c7537;
-  --b4: #fffaf2;
-  --b4-deep: #e6d9c4;
-}
-
-[data-theme="lavender"] {
-  --bg: #faf8fc;
-  --bg-tint: #f1ecf7;
-  --ink: #252030;
-  --ink-soft: #544c62;
-  --muted: #847b92;
-  --line: #e6dfef;
-  --accent: #6c529d;
-  --accent-hover: #574184;
-  --accent-soft: #ece5f6;
-  --arch: linear-gradient(170deg, #f1eaf9 0%, #e5daf2 100%);
-  --b1: #c9b6e8;
-  --b1-deep: #977dc6;
-  --b2: #f4dbe7;
-  --b2-deep: #d6a5bd;
-  --b3: #dcc392;
-  --b3-deep: #b0925a;
-  --b4: #fdfaff;
-  --b4-deep: #ddd3ec;
-}
-
-[data-theme="sage"] {
-  --bg: #f8f9f5;
-  --bg-tint: #eef2ea;
-  --ink: #1f2a24;
-  --ink-soft: #485650;
-  --muted: #76847d;
-  --line: #dfe6dc;
-  --accent: #4b705d;
-  --accent-hover: #3c5c4c;
-  --accent-soft: #e2ede5;
-  --arch: linear-gradient(170deg, #ecf2ea 0%, #dce7da 100%);
-  --b1: #b9d0be;
-  --b1-deep: #81a68d;
-  --b2: #f2ddcc;
-  --b2-deep: #d6b197;
-  --b3: #d8c08b;
-  --b3-deep: #ad955a;
-  --b4: #fdfdf8;
-  --b4-deep: #dfe2d4;
-}
-
 :root {
+  /* PRD renkleri */
+  --accent: #6c5ce7; /* Canlı güven moru: marka, bağlantılar, seçili durumlar */
+  --accent-hover: #5a4bd6;
+  --accent-soft: #efedfd;
+  --action: #ff7675; /* Sıcak mercan: Hemen Ara, İlan Ver gibi aksiyon butonları */
+  --action-hover: #f45f5e;
+  --action-soft: #ffeded;
+  --success: #00b894; /* Onay & doğrulama: WhatsApp ve onaylı hesaplar */
+  --success-hover: #00a383;
+  --success-soft: #e0f7f1;
+  --bg: #f8f9fa;
+  --bg-tint: #f1effd;
   --surface: #ffffff;
-  --font-display: "Cormorant Garamond", "Times New Roman", Georgia, serif;
-  --font-body: "Manrope", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --radius: 24px;
-  --shadow-sm: 0 1px 2px rgb(44 29 36 / 0.05), 0 4px 14px rgb(44 29 36 / 0.05);
-  --shadow: 0 2px 6px rgb(44 29 36 / 0.05), 0 18px 44px rgb(44 29 36 / 0.09);
+  --ink: #2d3436;
+  --ink-soft: #4b5558;
+  --muted: #7d8689;
+  --line: #e5e7eb;
+  --arch: linear-gradient(170deg, #f3f1fe 0%, #e6e2fc 100%);
+  --b1: #a29bfe;
+  --b1-deep: #6c5ce7;
+  --b2: #ffb3b3;
+  --b2-deep: #ff7675;
+  --b3: #7ee8cd;
+  --b3-deep: #00b894;
+  --b4: #ffffff;
+  --b4-deep: #e3e0f7;
+  --font-display: "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-body: "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --radius: 22px;
+  --shadow-sm: 0 1px 2px rgb(45 52 54 / 0.05), 0 4px 14px rgb(45 52 54 / 0.05);
+  --shadow: 0 2px 6px rgb(45 52 54 / 0.05), 0 18px 44px rgb(45 52 54 / 0.09);
   --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
   --header-h: 76px;
 }
@@ -252,12 +191,21 @@ textarea {
 .btn-ghost-light:hover {
   background: rgb(255 255 255 / 0.1);
 }
+.btn-action {
+  background: var(--action);
+  color: #fff;
+  box-shadow: 0 8px 22px -12px var(--action);
+}
+.btn-action:hover {
+  background: var(--action-hover);
+  transform: translateY(-1px);
+}
 .btn-whatsapp {
-  background: #1fa855;
+  background: var(--success);
   color: #fff;
 }
 .btn-whatsapp:hover {
-  background: #178a45;
+  background: var(--success-hover);
 }
 .text-link {
   display: inline-flex;
@@ -344,8 +292,9 @@ textarea {
   gap: 10px;
   text-decoration: none;
   font-family: var(--font-display);
-  font-size: 25px;
-  font-weight: 600;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
   color: var(--ink);
   white-space: nowrap;
 }
@@ -507,9 +456,9 @@ textarea {
 }
 .section-head h2 {
   font-family: var(--font-display);
-  font-size: clamp(2rem, 4vw, 3.1rem);
-  font-weight: 500;
-  letter-spacing: -0.005em;
+  font-size: clamp(1.6rem, 3.2vw, 2.48rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
 }
 .section-lead {
   margin-top: 14px;
@@ -559,15 +508,18 @@ textarea {
 }
 .hero h1 {
   font-family: var(--font-display);
-  font-size: clamp(2.8rem, 6vw, 5rem);
-  font-weight: 500;
-  line-height: 1;
-  letter-spacing: -0.015em;
+  font-size: clamp(2.24rem, 4.8vw, 3.9rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
 }
 .hero h1 em {
   display: block;
-  color: var(--accent);
-  font-style: italic;
+  font-style: normal;
+  background: linear-gradient(90deg, var(--accent), var(--action));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 .hero .lead {
   max-width: 560px;
@@ -631,8 +583,7 @@ textarea {
 }
 .hero-art-text {
   font-family: var(--font-display);
-  font-style: italic;
-  font-size: 46px;
+  font-size: 36.8px;
   fill: var(--accent);
 }
 .cake-stand {
@@ -1108,8 +1059,9 @@ textarea {
 .empty-state h1,
 .empty-state h2 {
   font-family: var(--font-display);
-  font-size: clamp(1.9rem, 4vw, 2.6rem);
-  font-weight: 500;
+  font-size: clamp(1.52rem, 3.2vw, 2.08rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
 }
 .empty-state p {
   color: var(--ink-soft);
@@ -1223,8 +1175,7 @@ textarea {
   display: block;
   margin-bottom: 16px;
   font-family: var(--font-display);
-  font-size: 52px;
-  font-style: italic;
+  font-size: 41.6px;
   line-height: 1;
   color: var(--accent);
 }
@@ -1258,8 +1209,9 @@ textarea {
 .vendor-cta h2 {
   color: #fff;
   font-family: var(--font-display);
-  font-size: clamp(2.1rem, 4.4vw, 3.4rem);
-  font-weight: 500;
+  font-size: clamp(1.68rem, 3.5vw, 2.72rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
 }
 .vendor-text {
   max-width: 560px;
@@ -1388,9 +1340,9 @@ textarea {
 }
 .page-hero h1 {
   font-family: var(--font-display);
-  font-size: clamp(2rem, 4.4vw, 3.2rem);
-  font-weight: 500;
-  letter-spacing: -0.005em;
+  font-size: clamp(1.6rem, 3.5vw, 2.56rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
 }
 .page-lead {
   display: flex;
@@ -1707,8 +1659,9 @@ textarea {
   background: var(--accent);
   color: #fff;
   font-family: var(--font-display);
-  font-size: 24px;
-  font-weight: 600;
+  font-size: 19.2px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
 }
 .vendor-box strong {
   display: block;
@@ -1811,8 +1764,9 @@ textarea {
 }
 .dialog-head h2 {
   font-family: var(--font-display);
-  font-size: 30px;
-  font-weight: 600;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
 }
 .dialog-lead {
   color: var(--ink-soft);
@@ -1957,8 +1911,9 @@ textarea {
 .contact-form h2 {
   margin-bottom: 22px;
   font-family: var(--font-display);
-  font-size: 32px;
-  font-weight: 600;
+  font-size: 25.6px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
 }
 .form-grid {
   display: grid;
@@ -2066,8 +2021,9 @@ textarea {
   margin-top: 14px;
   color: var(--ink);
   font-family: var(--font-display);
-  font-size: 28px;
-  font-weight: 600;
+  font-size: 22.4px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
 }
 .legal-text ul {
   display: grid;
@@ -2280,4 +2236,261 @@ textarea {
   *::after {
     transition-duration: 0.01ms !important;
   }
+}
+
+/* ---------- PRD: etkinlikler, vitrin, dopingler, doğrulama, takvim ---------- */
+
+.section-events {
+  padding-top: clamp(48px, 6vw, 72px);
+}
+.event-row {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 12px;
+}
+@media (max-width: 1100px) {
+  .event-row {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+@media (max-width: 560px) {
+  .event-row {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+}
+.event-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 20px 10px 18px;
+  border-radius: 20px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  text-align: center;
+  text-decoration: none;
+  transition:
+    transform 0.3s var(--ease),
+    box-shadow 0.3s,
+    border-color 0.3s;
+}
+.event-tile:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow);
+  border-color: transparent;
+}
+.et-icon {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, var(--accent-soft), var(--action-soft));
+  color: var(--accent);
+}
+.et-icon .icon {
+  width: 28px;
+  height: 28px;
+}
+.et-name {
+  font-weight: 700;
+  font-size: 14.5px;
+  line-height: 1.3;
+}
+.et-count {
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.slider-nav {
+  display: flex;
+  gap: 6px;
+}
+.slider-nav .icon-btn {
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+.slider-prev .icon {
+  transform: rotate(180deg);
+}
+.showcase-track {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: calc((100% - 60px) / 4);
+  gap: 20px;
+  overflow-x: auto;
+  padding: 4px 2px 18px;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: thin;
+}
+.showcase-track > * {
+  scroll-snap-align: start;
+}
+@media (max-width: 1100px) {
+  .showcase-track {
+    grid-auto-columns: calc((100% - 40px) / 3);
+  }
+}
+@media (max-width: 820px) {
+  .showcase-track {
+    grid-auto-columns: 72%;
+  }
+}
+
+.card-listing.is-highlight {
+  border: 2px solid transparent;
+  background:
+    linear-gradient(var(--surface), var(--surface)) padding-box,
+    linear-gradient(135deg, var(--accent), var(--action)) border-box;
+  box-shadow: 0 10px 30px -14px var(--accent);
+}
+.badge-featured {
+  background: linear-gradient(90deg, var(--accent), var(--action));
+  color: #fff;
+}
+.badge-highlight {
+  background: var(--action);
+  color: #fff;
+}
+
+.verified {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 2px 0;
+  padding: 2px 9px 2px 6px;
+  border-radius: 999px;
+  background: var(--success-soft);
+  color: var(--success);
+  font-size: 12px;
+  font-weight: 700;
+}
+.verified .icon {
+  width: 14px;
+  height: 14px;
+}
+.vendor-box > div {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.event-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+.event-chips h3 {
+  width: 100%;
+  margin-bottom: 2px;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.busy-calendar {
+  margin-top: 20px;
+  padding: clamp(22px, 3vw, 32px);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 24px;
+}
+.busy-calendar > h2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 19px;
+  font-weight: 700;
+}
+.busy-calendar > h2 .icon {
+  color: var(--accent);
+}
+.busy-legend {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0 18px;
+  color: var(--muted);
+  font-size: 13.5px;
+}
+.dot {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 4px;
+  background: var(--bg-tint);
+  margin-left: 8px;
+}
+.dot.is-busy {
+  background: var(--action);
+  margin-left: 0;
+}
+.busy-months {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 22px;
+}
+@media (max-width: 760px) {
+  .busy-months {
+    grid-template-columns: 1fr;
+  }
+}
+.cal-month h3 {
+  margin-bottom: 10px;
+  font-size: 15px;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+.cal-head {
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 700;
+  text-align: center;
+}
+.cal-cell {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  border-radius: 8px;
+  background: var(--bg-tint);
+  font-size: 13px;
+  font-weight: 600;
+}
+.cal-cell.is-empty {
+  background: none;
+}
+.cal-cell.is-past {
+  opacity: 0.4;
+}
+.cal-cell.is-busy {
+  background: var(--action);
+  color: #fff;
+}
+.busy-note,
+.busy-loading {
+  margin-top: 14px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.sf-budget {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.sf-range {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.dialog .form-note a {
+  color: var(--accent);
 }

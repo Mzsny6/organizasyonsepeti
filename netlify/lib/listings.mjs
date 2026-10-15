@@ -1,10 +1,12 @@
-// İlanlar: kayıtlar, durum akışı (onay bekliyor → yayında / reddedildi / pasif), arama dizini ve şikâyetler.
+// İlanlar: kayıtlar, durum akışı (onay bekliyor → yayında / reddedildi / pasif), paket süresi,
+// dopingler, arama dizini ve şikâyetler.
 import { getStore } from "@netlify/blobs";
 import { randomBytes } from "node:crypto";
 import { isValidLocation } from "../../public/assets/js/locations.js";
 import { mediaStore } from "./content.mjs";
 import { HttpError } from "./http.mjs";
 import { foldText, slugify } from "./text.mjs";
+import { deleteStats } from "./stats.mjs";
 import { formatPhone } from "./users.mjs";
 
 export const listingStore = () => getStore({ name: "listings", consistency: "strong" });
@@ -39,7 +41,17 @@ const cleanText = (value, max) =>
     .trim()
     .slice(0, max);
 
-export function validateListingInput(input, categories) {
+const DAY_MS = 864e5;
+const addDays = (fromIso, days) =>
+  new Date(Math.max(Date.now(), Date.parse(fromIso || 0) || 0) + days * DAY_MS).toISOString();
+const nowIso = () => new Date().toISOString();
+
+// Yayında, onaylı ve paket süresi dolmamış ilan.
+export const isLive = (x, now = nowIso()) => x.status === "active" && Boolean(x.expiresAt) && x.expiresAt > now;
+export const dopingActive = (x, key, now = nowIso()) => Boolean(x.dopings?.[key] && x.dopings[key] > now);
+
+export function validateListingInput(input, content) {
+  const { categories, events } = content;
   const listing = {
     title: clean(input.title, 90),
     category: clean(input.category, 40),
@@ -54,6 +66,10 @@ export function validateListingInput(input, categories) {
       .replace(/^https?:\/\/(www\.)?instagram\.com\//i, "")
       .replace(/[/?#].*$/, ""),
     images: Array.isArray(input.images) ? input.images.map(String).slice(0, MAX_IMAGES) : [],
+    events: Array.isArray(input.events)
+      ? [...new Set(input.events.map(String))].filter((id) => events.some((e) => e.id === id))
+      : [],
+    showCalendar: Boolean(input.showCalendar),
   };
   const price = String(input.priceMin ?? "").replace(/[^\d]/g, "");
   if (price) listing.priceMin = Math.min(Number(price), 99_999_999);
@@ -101,7 +117,12 @@ export function summarize(l) {
     company: l.company,
     userId: l.userId,
     status: l.status,
-    featured: Boolean(l.featured),
+    events: l.events || [],
+    expiresAt: l.expiresAt || "",
+    credit: l.credit || 0,
+    awaitingOrder: Boolean(l.awaitingOrder),
+    dopings: l.dopings || {},
+    showCalendar: Boolean(l.showCalendar),
     createdAt: l.createdAt,
     updatedAt: l.updatedAt,
     publishedAt: l.publishedAt || "",
@@ -146,8 +167,8 @@ async function saveListing(listing) {
   return listing;
 }
 
-export async function createListing(user, input, categories) {
-  const data = validateListingInput(input, categories);
+export async function createListing(user, input, content) {
+  const data = validateListingInput(input, content);
   await assertOwnImages(data.images, user.id);
   const open = (await readIndex()).filter((x) => x.userId === user.id && x.status !== "rejected").length;
   if (open >= MAX_OPEN_PER_USER) {
@@ -165,8 +186,11 @@ export async function createListing(user, input, categories) {
     slug: slugify(data.title),
     status: "pending",
     approved: false,
-    featured: false,
     rejectReason: "",
+    expiresAt: "",
+    credit: 0, // ödenmiş ama henüz başlamamış paket günleri
+    awaitingOrder: "", // ödemesi beklenen sipariş
+    dopings: {},
     createdAt: now,
     updatedAt: now,
     publishedAt: "",
@@ -174,8 +198,8 @@ export async function createListing(user, input, categories) {
 }
 
 // İçerik değişen ilan yeniden onaya düşer.
-export async function updateListing(user, listing, input, categories) {
-  const data = validateListingInput(input, categories);
+export async function updateListing(user, listing, input, content) {
+  const data = validateListingInput(input, content);
   await assertOwnImages(data.images, user.id);
   const removed = listing.images.filter((url) => !data.images.includes(url));
   Object.assign(listing, data, {
@@ -195,28 +219,65 @@ export async function setOwnerActive(listing, active) {
   if (listing.status === "rejected")
     throw new HttpError(400, "Reddedilen ilanı yeniden yayınlamak için düzenleyip tekrar gönderin.");
   listing.status = active ? (listing.approved ? "active" : "pending") : "passive";
-  listing.updatedAt = new Date().toISOString();
+  listing.updatedAt = nowIso();
+  applyCredit(listing);
+  return saveListing(listing);
+}
+
+// Ödenmiş paket günlerini, ilan yayındaysa bitiş tarihine ekler.
+function applyCredit(listing) {
+  if (listing.status !== "active" || !listing.credit) return;
+  listing.expiresAt = addDays(listing.expiresAt, listing.credit);
+  listing.credit = 0;
+}
+
+export const isPaid = (listing) => listing.credit > 0 || Boolean(listing.expiresAt && listing.expiresAt > nowIso());
+
+// Sipariş ödendiğinde çağrılır (paket ya da yenileme).
+export async function addCredit(listing, days) {
+  listing.credit = (listing.credit || 0) + days;
+  listing.awaitingOrder = "";
+  applyCredit(listing);
+  return saveListing(listing);
+}
+
+export async function setAwaitingOrder(listing, orderId) {
+  listing.awaitingOrder = orderId;
+  return saveListing(listing);
+}
+
+export async function addDoping(listing, key, days) {
+  listing.dopings = { ...listing.dopings, [key]: addDays(listing.dopings?.[key], days) };
+  return saveListing(listing);
+}
+
+export async function clearDoping(listing, key) {
+  const { [key]: _removed, ...rest } = listing.dopings || {};
+  listing.dopings = rest;
+  return saveListing(listing);
+}
+
+export async function extendListing(listing, days) {
+  listing.expiresAt = addDays(listing.expiresAt, days);
   return saveListing(listing);
 }
 
 export async function moderateListing(listing, status, reason = "") {
   if (!STATUSES[status]) throw new HttpError(400, "Geçersiz durum.");
+  if (status === "active" && !isPaid(listing)) {
+    throw new HttpError(400, "Bu ilanın paket ödemesi onaylanmadı. Önce Ödemeler bölümünden ödemeyi onaylayın.");
+  }
   listing.status = status;
   if (status === "active") {
     listing.approved = true;
     listing.rejectReason = "";
-    listing.publishedAt ||= new Date().toISOString();
+    listing.publishedAt ||= nowIso();
+    applyCredit(listing);
   }
   if (status === "rejected") {
     listing.approved = false;
-    listing.featured = false;
     listing.rejectReason = clean(reason, 300) || "İlan yayın kurallarına uygun bulunmadı.";
   }
-  return saveListing(listing);
-}
-
-export async function setFeatured(listing, featured) {
-  listing.featured = Boolean(featured);
   return saveListing(listing);
 }
 
@@ -224,6 +285,7 @@ export async function deleteListing(listing) {
   await listingStore().delete(`l/${listing.id}`);
   await removeFromIndex(listing.id);
   await deleteImages(listing.images);
+  await deleteStats(listing.id);
 }
 
 // Üye firma adını değiştirince ilanlarındaki ad da güncellenir.
@@ -261,22 +323,29 @@ export const SORTS = {
 };
 export const PER_PAGE = 24;
 
-export function searchIndex(index, { category, city, district, q, sort, page }) {
+// filters: category, event, city, district, q, min, max (bütçe), sort, page
+export function searchIndex(index, { category, event, city, district, q, min, max, sort, page }) {
+  const now = nowIso();
   const terms = foldText(q)
     .split(/\s+/)
     .filter((t) => t.length > 1);
   let items = index.filter(
     (x) =>
-      x.status === "active" &&
+      isLive(x, now) &&
       (!category || x.category === category) &&
+      (!event || x.events.includes(event)) &&
       (!city || x.city === city) &&
       (!district || x.district === district || !x.district) &&
+      (!min || (x.priceMin && x.priceMin >= min)) &&
+      (!max || (x.priceMin && x.priceMin <= max)) &&
       terms.every((t) => x.text.includes(t)),
   );
   const byDate = (a, b) => (b.publishedAt || b.createdAt).localeCompare(a.publishedAt || a.createdAt);
   const price = (x, dir) => (x.priceMin ? x.priceMin * dir : Number.MAX_SAFE_INTEGER);
+  // "Kategori Üst Sıra" dopingi: kendi kategorisinde arama yapılınca en üstte
+  const top = (x) => (category && dopingActive(x, "categoryTop", now) ? 1 : 0);
   const sorters = {
-    onerilen: (a, b) => Number(b.featured) - Number(a.featured) || byDate(a, b),
+    onerilen: (a, b) => top(b) - top(a) || byDate(a, b),
     yeni: byDate,
     "fiyat-artan": (a, b) => price(a, 1) - price(b, 1) || byDate(a, b),
     "fiyat-azalan": (a, b) => price(a, -1) - price(b, -1) || byDate(a, b),
@@ -292,9 +361,16 @@ export function searchIndex(index, { category, city, district, q, sort, page }) 
   };
 }
 
+export const liveListings = (index) => {
+  const now = nowIso();
+  return index.filter((x) => isLive(x, now));
+};
+
 export function countBy(index, field) {
   const counts = {};
-  for (const x of index) if (x.status === "active") counts[x[field]] = (counts[x[field]] || 0) + 1;
+  for (const x of liveListings(index)) {
+    for (const value of [x[field]].flat()) counts[value] = (counts[value] || 0) + 1;
+  }
   return counts;
 }
 

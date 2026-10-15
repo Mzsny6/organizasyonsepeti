@@ -63,7 +63,55 @@ export const ICONS = {
     label: "Animasyon",
     d: '<circle cx="12" cy="12" r="9"/><path d="M8.5 14.5a4.5 4.5 0 0 0 7 0"/><path d="M9 9.5h.01M15 9.5h.01" stroke-width="2.2"/>',
   },
+  home: {
+    label: "Davet evi",
+    d: '<path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 9.5V20h13V9.5"/><path d="M10 20v-5.5h4V20"/>',
+  },
+  boat: {
+    label: "Tekne",
+    d: '<path d="M3 15h18l-2.5 4.5h-13L3 15Z"/><path d="M12 3v12"/><path d="M12 4.5 18 12h-6"/><path d="M12 6.5 7.5 12H12"/>',
+  },
+  speaker: {
+    label: "Ses & ışık",
+    d: '<rect x="6" y="3" width="12" height="18" rx="2"/><circle cx="12" cy="14.5" r="3"/><circle cx="12" cy="7.5" r="1.2"/>',
+  },
+  drum: {
+    label: "Bando",
+    d: '<ellipse cx="12" cy="9" rx="8" ry="3"/><path d="M4 9v7c0 1.7 3.6 3 8 3s8-1.3 8-3V9"/><path d="M8 11.7v6.9M16 11.7v6.9"/><path d="m5 3 6 5M19 3l-6 5"/>',
+  },
+  brush: {
+    label: "Yüz boyama",
+    d: '<path d="M14.5 4.5 19.5 9.5 11 18l-5-5 8.5-8.5Z"/><path d="M6 13c-2 0-3 1.5-3 3.5V20h3.5c2 0 3.5-1 3.5-3"/>',
+  },
+  wand: {
+    label: "İllüzyon",
+    d: '<path d="M4 20 15 9"/><path d="m15 9 2-2"/><path d="M17 3v2M21 7h-2M19.5 4.5l-1 1M15 3.5l.5 1.5M20.5 9.5l-1.5-.5"/>',
+  },
+  candy: {
+    label: "Pamuk şeker",
+    d: '<path d="M12 13 9 21"/><path d="M8.5 6.5a4 4 0 0 1 7.3-1.8 3.5 3.5 0 0 1 2.2 6 3.8 3.8 0 0 1-5.7 2.6 3.8 3.8 0 0 1-5.4-1.3 3.4 3.4 0 0 1 1.6-5.5Z"/>',
+  },
+  mask: {
+    label: "Kostümlü karakter",
+    d: '<path d="M3 7c3-1.5 6-1.5 9 0 3-1.5 6-1.5 9 0v4c0 4-3 7-6 7-1.5 0-2.5-1-3-2-.5 1-1.5 2-3 2-3 0-6-3-6-7V7Z"/><path d="M7 11h2.5M14.5 11H17"/>',
+  },
   // Arayüz ikonları
+  calendar: { ui: true, d: '<rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/>' },
+  chart: { ui: true, d: '<path d="M4 20V4"/><path d="M4 20h16"/><path d="M8 16v-5M12 16V8M16 16v-3"/>' },
+  ban: { ui: true, d: '<circle cx="12" cy="12" r="9"/><path d="m5.6 5.6 12.8 12.8"/>' },
+  tag: { ui: true, d: '<path d="M3 12V4h8l9.5 9.5-8 8L3 12Z"/><circle cx="7.5" cy="8.5" r="1.3"/>' },
+  rocket: {
+    ui: true,
+    d: '<path d="M12 15c-1.5-1.5-3-2-4.5-2L10 9c3-4 7-5.5 10-5 .5 3-1 7-5 10l-4 2.5c0-1.5-.5-3-2-4.5"/><path d="M7.5 13 5 15.5l3.5.5M11 16.5l.5 3.5 2.5-2.5"/><circle cx="15" cy="9" r="1.5"/>',
+  },
+  wallet: {
+    ui: true,
+    d: '<rect x="3" y="6" width="18" height="14" rx="2"/><path d="M3 10h18"/><path d="M16 15h2"/><path d="M6 6l9-3 1 3"/>',
+  },
+  badge: {
+    ui: true,
+    d: '<circle cx="12" cy="9" r="6"/><path d="m9 14.5-1.5 6.5 4.5-2.5 4.5 2.5L15 14.5"/><path d="m9.5 9 1.8 1.8L14.5 7.5"/>',
+  },
   search: { ui: true, d: '<circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/>' },
   user: { ui: true, d: '<circle cx="12" cy="8" r="4"/><path d="M4 20.5c1.2-3.8 4.3-5.5 8-5.5s6.8 1.7 8 5.5"/>' },
   flag: { ui: true, d: '<path d="M5 21V4"/><path d="M5 4h11l-2 4 2 4H5"/>' },

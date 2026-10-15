@@ -112,57 +112,7 @@ if (gallery) {
   main.addEventListener("click", () => openLightbox(list, active));
 }
 
-/* ---------- İlan iletişim bilgileri ---------- */
-
-const contactBox = $("[data-contact]");
-if (contactBox) {
-  const status = $(".form-status", contactBox);
-  let contact;
-  const load = async () => {
-    if (contact) return contact;
-    const res = await fetch(`/api/listings/${contactBox.dataset.listing}/contact`);
-    const body = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(body.error || "İletişim bilgisi alınamadı.");
-    return (contact = body);
-  };
-  const showError = (err) => {
-    status.textContent = err.message;
-    status.className = "form-status is-error";
-  };
-
-  $("[data-reveal-phone]", contactBox)?.addEventListener("click", async (e) => {
-    const button = e.currentTarget;
-    button.disabled = true;
-    try {
-      const { phone } = await load();
-      const link = document.createElement("a");
-      link.className = button.className;
-      link.href = `tel:${phone.replace(/[^\d+]/g, "")}`;
-      link.innerHTML = button.querySelector("svg").outerHTML;
-      link.append(phone);
-      button.replaceWith(link);
-    } catch (err) {
-      button.disabled = false;
-      showError(err);
-    }
-  });
-
-  $("[data-open-whatsapp]", contactBox)?.addEventListener("click", async () => {
-    // Pencere tıklama anında açılır; adres bilgi gelince verilir (açılır pencere engelleyicileri için).
-    const win = window.open("", "_blank");
-    try {
-      const { whatsapp } = await load();
-      const url = `https://wa.me/${whatsapp}?text=${encodeURIComponent(contactBox.dataset.waText)}`;
-      if (win) win.location.href = url;
-      else location.href = url;
-    } catch (err) {
-      win?.close();
-      showError(err);
-    }
-  });
-}
-
-/* ---------- Pencereler (şikâyet) ---------- */
+/* ---------- Pencereler ---------- */
 
 $$("[data-open-dialog]").forEach((button) =>
   button.addEventListener("click", () => document.getElementById(button.dataset.openDialog)?.showModal()),
@@ -176,7 +126,8 @@ async function postJson(url, data) {
     body: JSON.stringify(data),
   });
   const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(body.error || "Gönderilemedi, lütfen tekrar deneyin.");
+  if (!res.ok)
+    throw Object.assign(new Error(body.error || "Gönderilemedi, lütfen tekrar deneyin."), { status: res.status, body });
   return body;
 }
 
@@ -185,6 +136,116 @@ function setStatus(el, text, type) {
   el.className = `form-status${type ? ` is-${type}` : ""}`;
 }
 
+/* ---------- SMS doğrulama (iletişim bariyeri) ---------- */
+
+const otpDialog = $("#dogrulama");
+let otpResolve = null;
+
+// Doğrulama penceresini açar; doğrulama başarılı olunca true ile çözülür.
+function requestVerification() {
+  if (!otpDialog) return Promise.resolve(false);
+  const form = $("[data-otp-form]", otpDialog);
+  form.reset();
+  $("[data-step=code]", form).hidden = true;
+  $("[data-step=phone]", form).hidden = false;
+  $("[data-otp-submit]", form).textContent = "Kod gönder";
+  setStatus($(".form-status", form), "");
+  otpDialog.showModal();
+  return new Promise((resolve) => (otpResolve = resolve));
+}
+
+if (otpDialog) {
+  const form = $("[data-otp-form]", otpDialog);
+  const status = $(".form-status", form);
+  const submit = $("[data-otp-submit]", form);
+  otpDialog.addEventListener("close", () => {
+    otpResolve?.(false);
+    otpResolve = null;
+  });
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const codeStep = !$("[data-step=code]", form).hidden;
+    submit.disabled = true;
+    try {
+      if (!codeStep) {
+        const { sentTo } = await postJson("/api/v1/auth/send-otp", { phone: form.phone.value });
+        $("[data-step=phone]", form).hidden = true;
+        $("[data-step=code]", form).hidden = false;
+        submit.textContent = "Doğrula";
+        setStatus(status, `${sentTo} numarasına kod gönderdik.`, "success");
+        form.code.focus();
+      } else {
+        await postJson("/api/v1/auth/verify-otp", { phone: form.phone.value, code: form.code.value });
+        const resolve = otpResolve;
+        otpResolve = null;
+        otpDialog.close();
+        resolve?.(true);
+      }
+    } catch (err) {
+      setStatus(status, err.message, "error");
+    } finally {
+      submit.disabled = false;
+    }
+  });
+}
+
+/* ---------- İlan iletişim bilgileri ---------- */
+
+const contactBox = $("[data-contact]");
+if (contactBox) {
+  const status = $(".form-status", contactBox);
+  const cache = {};
+  const load = async (type) => {
+    if (cache[type]) return cache[type];
+    const res = await fetch(`/api/v1/listings/${contactBox.dataset.listing}/contact?type=${type}`, {
+      credentials: "same-origin",
+    });
+    const body = await res.json().catch(() => ({}));
+    if (res.status === 403 && body.needsVerification) {
+      if (!(await requestVerification())) throw new Error("");
+      return load(type);
+    }
+    if (!res.ok) throw new Error(body.error || "İletişim bilgisi alınamadı.");
+    return (cache[type] = body);
+  };
+  const showError = (err) => {
+    if (!err.message) return;
+    setStatus(status, err.message, "error");
+  };
+
+  $("[data-reveal-phone]", contactBox)?.addEventListener("click", async (e) => {
+    const button = e.currentTarget;
+    button.disabled = true;
+    try {
+      const { phone } = await load("phone");
+      const link = document.createElement("a");
+      link.className = button.className;
+      link.href = `tel:${phone.replace(/[^\d+]/g, "")}`;
+      link.innerHTML = button.querySelector("svg").outerHTML;
+      link.append(phone);
+      button.replaceWith(link);
+    } catch (err) {
+      button.disabled = false;
+      showError(err);
+    }
+  });
+
+  $("[data-open-whatsapp]", contactBox)?.addEventListener("click", async () => {
+    const open = (whatsapp) => {
+      const url = `https://wa.me/${whatsapp}?text=${encodeURIComponent(contactBox.dataset.waText)}`;
+      if (!window.open(url, "_blank")) location.href = url;
+    };
+    if (cache.whatsapp) return open(cache.whatsapp.whatsapp);
+    try {
+      open((await load("whatsapp")).whatsapp);
+    } catch (err) {
+      showError(err);
+    }
+  });
+}
+
+/* ---------- Şikâyet ---------- */
+
 const reportForm = $("[data-report-form]");
 reportForm?.addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -192,7 +253,10 @@ reportForm?.addEventListener("submit", async (e) => {
   const submit = $("button[type=submit]", reportForm);
   submit.disabled = true;
   try {
-    await postJson(`/api/listings/${reportForm.dataset.listing}/report`, Object.fromEntries(new FormData(reportForm)));
+    await postJson(
+      `/api/v1/listings/${reportForm.dataset.listing}/report`,
+      Object.fromEntries(new FormData(reportForm)),
+    );
     setStatus(status, "Teşekkürler, bildiriminiz bize ulaştı.", "success");
     setTimeout(() => reportForm.closest("dialog").close(), 1800);
   } catch (err) {
@@ -201,6 +265,68 @@ reportForm?.addEventListener("submit", async (e) => {
     submit.disabled = false;
   }
 });
+
+/* ---------- Vitrin kaydırıcısı ---------- */
+
+$$("[data-slider]").forEach((track) => {
+  const section = track.closest("section");
+  const step = () => (track.firstElementChild?.getBoundingClientRect().width || 300) + 20;
+  $(".slider-prev", section)?.addEventListener("click", () => track.scrollBy({ left: -step(), behavior: "smooth" }));
+  $(".slider-next", section)?.addEventListener("click", () => track.scrollBy({ left: step(), behavior: "smooth" }));
+});
+
+/* ---------- Müsaitlik takvimi ---------- */
+
+const busyBox = $("[data-busy-calendar]");
+if (busyBox) {
+  fetch(`/api/v1/organizer/calendar?listing=${busyBox.dataset.listing}`)
+    .then((r) => (r.ok ? r.json() : { busy: [] }))
+    .then(({ busy }) => {
+      const set = new Set(busy);
+      const today = new Date();
+      const months = [0, 1, 2].map((offset) => new Date(today.getFullYear(), today.getMonth() + offset, 1));
+      const iso = (d) =>
+        `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      const html = months
+        .map((first) => {
+          const days = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
+          const lead = (first.getDay() + 6) % 7; // Pazartesi başlangıç
+          const cells = [];
+          for (let i = 0; i < lead; i++) cells.push('<span class="cal-cell is-empty"></span>');
+          for (let d = 1; d <= days; d++) {
+            const date = new Date(first.getFullYear(), first.getMonth(), d);
+            const key = iso(date);
+            const past = key < iso(today);
+            cells.push(
+              `<span class="cal-cell${set.has(key) ? " is-busy" : ""}${past ? " is-past" : ""}" title="${set.has(key) ? "Dolu" : ""}">${d}</span>`,
+            );
+          }
+          const title = first.toLocaleDateString("tr-TR", { month: "long", year: "numeric" });
+          return `<div class="cal-month"><h3>${title}</h3><div class="cal-grid">${[
+            "Pt",
+            "Sa",
+            "Ça",
+            "Pe",
+            "Cu",
+            "Ct",
+            "Pz",
+          ]
+            .map((w) => `<span class="cal-head">${w}</span>`)
+            .join("")}${cells.join("")}</div></div>`;
+        })
+        .join("");
+      $(".busy-months", busyBox).innerHTML = html;
+    })
+    .catch(() => busyBox.remove());
+}
+
+// Bütçe alanları: yalnızca rakam
+$$(".sf-range input").forEach((input) =>
+  input.addEventListener("input", () => {
+    const digits = input.value.replace(/\D/g, "").slice(0, 8);
+    input.value = digits;
+  }),
+);
 
 /* ---------- İletişim formu ---------- */
 

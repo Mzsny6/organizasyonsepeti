@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { getStore } from "@netlify/blobs";
-import { DEFAULT_CONTENT, ITEM_TEMPLATES, THEMES } from "./defaults.mjs";
+import { DEFAULT_CONTENT, ITEM_TEMPLATES } from "./defaults.mjs";
 import { slugify } from "./text.mjs";
 
 export const siteStore = () => getStore({ name: "site", consistency: "strong" });
@@ -53,14 +53,26 @@ function normalizeItem(item, tpl) {
 
 export function normalizeContent(input) {
   const content = normalize(input, DEFAULT_CONTENT);
-  if (!(content.settings.theme in THEMES)) content.settings.theme = DEFAULT_CONTENT.settings.theme;
   content.settings.whatsapp = normalizeWhatsapp(content.settings.whatsapp);
-  content.categories = normalizeCategories(content.categories);
+  content.categories = normalizeSlugged(content.categories).map((c) => ({
+    ...c,
+    tier: [1, 2, 3].includes(Math.round(c.tier)) ? Math.round(c.tier) : 3,
+  }));
+  content.events = normalizeSlugged(content.events);
+  const { tiers, dopings } = content.pricing;
+  for (const tier of Object.values(tiers))
+    for (const k of ["monthly", "quarterly", "yearly"]) tier[k] = Math.max(0, tier[k]);
+  for (const d of Object.values(dopings)) {
+    d.price = Math.max(0, d.price);
+    d.days = Math.min(365, Math.max(1, Math.round(d.days)));
+  }
+  content.pricing.bank.iban = content.pricing.bank.iban.toUpperCase().replace(/[^A-Z0-9 ]/g, "");
+  content.security.blacklistThreshold = Math.min(10, Math.max(1, Math.round(content.security.blacklistThreshold)));
   return content;
 }
 
-// Kategori adresleri (/ilanlar?kategori=...) benzersiz olmalı; boşsa addan üretilir.
-function normalizeCategories(categories) {
+// Kategori ve etkinlik adresleri (/ilanlar?kategori=...) benzersiz olmalı; boşsa addan üretilir.
+function normalizeSlugged(categories) {
   const seen = new Set();
   return categories
     .filter((c) => c.name.trim())
