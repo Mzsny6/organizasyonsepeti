@@ -67,6 +67,26 @@ test("yönetici girişi ve promosyon kodu", async () => {
   assert.equal(promo.data.promo.code, "MAYA3AY");
 });
 
+test("uygulama: manifest, çevrimdışı dosyası ve Android doğrulama dosyası", async () => {
+  const manifest = await admin.get("/manifest.webmanifest");
+  assert.equal(manifest.status, 200);
+  assert.equal(manifest.data.id, "/");
+  assert.equal((await admin.get("/sw.js")).status, 200);
+  assert.equal((await admin.get("/offline.html")).status, 200);
+  assert.deepEqual((await admin.get("/.well-known/assetlinks.json")).data, []);
+
+  const content = (await admin.get("/api/content")).data;
+  const fingerprint = Array.from({ length: 32 }, () => "AB").join(":");
+  content.settings.androidPackage = "net.organizasyonsepeti.twa";
+  content.settings.androidSha256 = fingerprint.toLowerCase();
+  content.settings.playStoreUrl = "https://play.google.com/store/apps/details?id=net.organizasyonsepeti.twa";
+  assert.equal((await admin.put("/api/content", content)).status, 200);
+  const [link] = (await admin.get("/.well-known/assetlinks.json")).data;
+  assert.equal(link.target.package_name, "net.organizasyonsepeti.twa");
+  assert.deepEqual(link.target.sha256_cert_fingerprints, [fingerprint]);
+  assert.match((await admin.get("/")).data, /Android uygulaması/);
+});
+
 test("organizatör kaydı, promosyonlu ilan ve onay", async () => {
   const bad = await organizer.post("/api/account/register", {
     name: "Ayşe Yılmaz",
@@ -169,6 +189,15 @@ test("hizmet ve il sayfaları: temiz adres, yönlendirme, site haritası", async
     assert.ok(sitemap.includes(`https://organizasyonsepeti.net${path}</loc>`), path);
   }
   assert.ok(!sitemap.includes("/hizmet/palyaco<"), "ilanı olmayan hizmet site haritasında yer almaz");
+});
+
+test("ilan görüntülenme sayacı botları saymaz", async () => {
+  const view = (headers) => client.req("POST", "/api/v1/analytics/view", { listingId: listing.id }, headers);
+  assert.equal((await view({ "User-Agent": "Mozilla/5.0 (compatible; Googlebot/2.1)" })).status, 200);
+  assert.equal((await view({ "User-Agent": "Mozilla/5.0 (Linux; Android 14) Chrome/130 Mobile" })).status, 200);
+  assert.equal((await client.req("POST", "/api/v1/analytics/view", { listingId: "0000000000" })).status, 404);
+  const me = await organizer.get("/api/account/me");
+  assert.equal(me.data.listings[0].stats.view, 1);
 });
 
 test("iletişim bariyeri: SMS doğrulamasından sonra telefon görünür", async () => {

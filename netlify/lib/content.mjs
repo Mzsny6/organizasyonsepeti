@@ -54,6 +54,7 @@ function normalizeItem(item, tpl) {
 export function normalizeContent(input) {
   const content = normalize(input, DEFAULT_CONTENT);
   content.settings.whatsapp = normalizeWhatsapp(content.settings.whatsapp);
+  normalizeAndroid(content.settings);
   content.categories = normalizeSlugged(content.categories).map((c) => ({
     ...c,
     tier: [1, 2, 3].includes(Math.round(c.tier)) ? Math.round(c.tier) : 3,
@@ -69,6 +70,17 @@ export function normalizeContent(input) {
   content.pricing.bank.iban = content.pricing.bank.iban.toUpperCase().replace(/[^A-Z0-9 ]/g, "");
   content.security.blacklistThreshold = Math.min(10, Math.max(1, Math.round(content.security.blacklistThreshold)));
   return content;
+}
+
+// Google Play uygulaması: paket adı, imza parmak izleri (SHA-256, satır başına bir tane) ve mağaza bağlantısı
+function normalizeAndroid(settings) {
+  const pkg = settings.androidPackage.trim();
+  settings.androidPackage = /^[a-zA-Z]\w*(\.[a-zA-Z]\w*)+$/.test(pkg) ? pkg.slice(0, 100) : "";
+  settings.androidSha256 = (settings.androidSha256.toUpperCase().match(/([0-9A-F]{2}:){31}[0-9A-F]{2}/g) || [])
+    .slice(0, 5)
+    .join("\n");
+  const url = settings.playStoreUrl.trim();
+  settings.playStoreUrl = /^https:\/\/play\.google\.com\//.test(url) ? url.slice(0, 300) : "";
 }
 
 // Kategori ve etkinlik adresleri (/ilanlar?kategori=...) benzersiz olmalı; boşsa addan üretilir.

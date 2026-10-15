@@ -79,6 +79,10 @@ export const DEFAULT_CONTENT = {
     siteName: "Organizasyon Sepeti",
     tagline: "Organizasyon firmalarını keşfedin, karşılaştırın, doğrudan ulaşın.",
     siteUrl: "https://organizasyonsepeti.net",
+    // Google Play uygulaması (PWABuilder / Bubblewrap ile oluşturulan Android paketi)
+    playStoreUrl: "",
+    androidPackage: "",
+    androidSha256: "",
     phone: "",
     whatsapp: "",
     whatsappMessage: "Merhaba, Organizasyon Sepeti hakkında bilgi almak istiyorum.",

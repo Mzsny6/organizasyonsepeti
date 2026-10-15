@@ -16,6 +16,12 @@
     Referrer-Policy = "strict-origin-when-cross-origin"
     X-Frame-Options = "SAMEORIGIN"
 
+# Uygulama çevrimdışı dosyası her zaman güncel sürümüyle yüklensin
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache"
+
 [[headers]]
   for = "/admin/*"
   [headers.values]

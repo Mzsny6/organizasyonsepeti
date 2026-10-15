@@ -2884,3 +2884,13 @@ textarea {
   outline-offset: 2px;
   border-radius: 6px;
 }
+
+.play-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.play-link .icon {
+  width: 16px;
+  height: 16px;
+}

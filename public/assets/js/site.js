@@ -1,6 +1,12 @@
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 
+/* ---------- Uygulama (PWA): çevrimdışı destek ---------- */
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => navigator.serviceWorker.register("/sw.js").catch(() => {}));
+}
+
 /* ---------- Üst menü ---------- */
 
 const header = $(".site-header");
@@ -303,6 +309,22 @@ const authStatus = () =>
   fetch("/api/v1/auth/status", { credentials: "same-origin" })
     .then((r) => r.json())
     .catch(() => ({}));
+
+/* ---------- İlan görüntülenme sayacı (aynı ilan bu tarayıcıdan günde bir kez sayılır) ---------- */
+
+if (contactBox) {
+  const key = `os_view_${contactBox.dataset.listing}`;
+  const today = new Date().toISOString().slice(0, 10);
+  if (remember(key) !== today) {
+    remember(key, today);
+    fetch("/api/v1/analytics/view", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ listingId: contactBox.dataset.listing }),
+      keepalive: true,
+    }).catch(() => {});
+  }
+}
 
 /* ---------- Teklif talebi ---------- */
 

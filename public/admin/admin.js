@@ -755,7 +755,7 @@ function listingRow(x, reload) {
           [
             `Eklendi ${fmtDay(x.createdAt)}`,
             x.expiresAt ? `Bitiş ${fmtDay(x.expiresAt)}` : x.credit ? `${x.credit} gün ödenmiş` : "",
-            `${x.stats?.phone || 0} telefon · ${x.stats?.whatsapp || 0} WhatsApp · ${x.stats?.request || 0} talep`,
+            `${x.stats?.view || 0} görüntülenme · ${x.stats?.phone || 0} telefon · ${x.stats?.whatsapp || 0} WhatsApp · ${x.stats?.request || 0} talep`,
           ]
             .filter(Boolean)
             .join(" · "),
@@ -1978,6 +1978,28 @@ const PAGES = {
           { key: "seoDescription", label: "Açıklama", type: "textarea", rows: 3, wide: true },
           { key: "ogImage", label: "Paylaşım görseli", type: "image", wide: true, help: "Yatay 1200×630 önerilir." },
           { key: "siteUrl", label: "Site adresi", wide: true, inputType: "url" },
+        ]),
+      ),
+      card(
+        "Android uygulaması (Google Play)",
+        "Uygulama PWABuilder ile siteden oluşturulur (adımlar README dosyasında). Paket adı ve imza parmak izi girildiğinde /.well-known/assetlinks.json dosyası otomatik yayınlanır; böylece uygulamada adres çubuğu görünmez.",
+        formGrid(state.content.settings, [
+          {
+            key: "playStoreUrl",
+            label: "Google Play bağlantısı",
+            wide: true,
+            inputType: "url",
+            help: "Uygulama yayınlanınca sitenin alt kısmında indirme bağlantısı görünür.",
+          },
+          { key: "androidPackage", label: "Paket adı", help: "Örn. net.organizasyonsepeti.twa" },
+          {
+            key: "androidSha256",
+            label: "SHA-256 imza parmak izi",
+            type: "textarea",
+            rows: 3,
+            wide: true,
+            help: "Play Console > Uygulama bütünlüğü > Uygulama imzalama bölümündeki SHA-256 değeri. Birden fazlaysa her satıra bir tane.",
+          },
         ]),
       ),
     ],

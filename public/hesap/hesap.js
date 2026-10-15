@@ -806,7 +806,7 @@ function renderListings(view) {
           "p",
           { class: "ml-stats" },
           ic("chart"),
-          `${x.stats?.phone || 0} telefon · ${x.stats?.whatsapp || 0} WhatsApp tıklaması · ${x.stats?.request || 0} teklif talebi`,
+          `${x.stats?.view || 0} görüntülenme · ${x.stats?.phone || 0} telefon · ${x.stats?.whatsapp || 0} WhatsApp tıklaması · ${x.stats?.request || 0} teklif talebi`,
         ),
         h("div", { class: "ml-actions" }, actions),
       ),

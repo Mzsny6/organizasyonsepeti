@@ -210,6 +210,8 @@ function siteFooter(c) {
         <a href="/ilanlar">Tüm ilanlar</a>
         <a href="/hesap/#yeni-ilan">İlan ver</a>
         <a href="/hesap/">Organizatör girişi</a>
+        <a href="/favoriler">Favorilerim</a>
+        ${s.playStoreUrl ? `<a class="play-link" href="${esc(safeUrl(s.playStoreUrl))}" target="_blank" rel="noopener">${icon("phone")}Android uygulaması</a>` : ""}
         <a href="/iletisim">İletişim</a>
       </nav>
       <nav class="footer-col" aria-label="Yasal">

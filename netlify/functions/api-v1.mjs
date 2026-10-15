@@ -13,6 +13,7 @@
 //   POST /api/v1/firms/:id/reviews       { rating, comment, name } Değerlendirme (teklif istemiş, doğrulanmış müşteri)
 //   POST /api/v1/promotions/apply        { code, package, category } İndirimli fiyatı hesaplar
 //   POST /api/v1/analytics/click         { listingId, type }       İletişim butonu tıklaması
+//   POST /api/v1/analytics/view          { listingId }             İlan görüntülenmesi
 //   GET  /api/v1/organizer/calendar      ?listing=:id              İlandaki dolu günler (ya da kendi takviminiz)
 //   POST /api/v1/reports/blacklist       { phone, reason, note }   Kötü niyetli müşteri ihbarı (organizatör)
 import { CITIES } from "../../public/assets/js/locations.js";
@@ -42,6 +43,8 @@ import {
   saveUser,
   userCookies,
 } from "../lib/users.mjs";
+
+const BOT_UA = /bot|crawl|spider|slurp|preview|lighthouse|headless|facebookexternalhit|whatsapp/i;
 
 const contactGateOn = (content) => content.security.contactGate && smsConfigured();
 
@@ -295,6 +298,18 @@ export default async (req, context) => {
       if (await isLimited("click", `${context.ip}:${listingId}:${type}`, 3, DAY)) return json({ ok: true });
       await countHit("click", `${context.ip}:${listingId}:${type}`, DAY);
       await countClick(listing.id, type);
+      return json({ ok: true });
+    }
+
+    // Görüntülenme: tarayıcı aynı ilanı günde bir kez bildirir; botlar ve aşırı istekler sayılmaz.
+    if (resource === "analytics" && id === "view" && req.method === "POST") {
+      const { listingId } = await readJson(req, 256);
+      if (BOT_UA.test(req.headers.get("user-agent") || "")) return json({ ok: true });
+      if (await isLimited("view", context.ip, 300, HOUR)) return json({ ok: true });
+      const listing = await getListing(listingId);
+      if (!listing || !isLive(listing)) return fail(404, "İlan bulunamadı.");
+      await countHit("view", context.ip, HOUR);
+      await countClick(listing.id, "view");
       return json({ ok: true });
     }
 

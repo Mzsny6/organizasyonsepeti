@@ -77,6 +77,21 @@ Değişkenleri ekledikten sonra **Deploys → Trigger deploy**.
 - **İletişim bilgileri** ve sosyal medya.
 - **Yasal metinler:** KVKK ve kullanım koşullarını bir hukukçuya kontrol ettirin.
 
+## Android uygulaması (Google Play)
+
+Uygulama, sitenin kendisini tam ekran açan bir **Trusted Web Activity (TWA)** paketidir: ayrı bir kod tabanı yoktur, sitede yapılan her değişiklik uygulamada da anında görünür. Site bunun için hazırdır (uygulama simgeleri, kısayollar, çevrimdışı ekranı, doğrulama dosyası).
+
+1. Site `https://organizasyonsepeti.net` adresinde yayında olmalı.
+2. [pwabuilder.com](https://www.pwabuilder.com) → site adresini yazın → **Package for stores → Android**.
+   - **Package ID:** `net.organizasyonsepeti.twa` · **App name:** Organizasyon Sepeti · **Launcher name:** Org. Sepeti
+   - **Signing key:** _Create new_ → **Download**. İndirilen klasördeki imza anahtarını (`.keystore`) ve şifrelerini güvenli bir yerde saklayın; uygulama güncellemeleri için gerekir.
+3. [Google Play Console](https://play.google.com/console) hesabı açın (tek seferlik 25 $) → **Uygulama oluştur** → paketteki `.aab` dosyasını önce **Dahili test**, sonra **Üretim** sürümüne yükleyin. Gizlilik politikası adresi: `https://organizasyonsepeti.net/kvkk`.
+4. Play Console → **Uygulama bütünlüğü → Uygulama imzalama** bölümündeki **SHA-256 sertifika parmak izini** kopyalayın.
+5. `/admin` → **Marka & SEO → Android uygulaması**: paket adını ve parmak izini yapıştırın, kaydedin. `https://organizasyonsepeti.net/.well-known/assetlinks.json` adresinde görünür; bu sayede uygulamada adres çubuğu çıkmaz.
+6. Uygulama yayınlanınca Google Play bağlantısını aynı yere girin; sitenin alt kısmında "Android uygulaması" bağlantısı görünür.
+
+> Bildirim (push) gibi sitenin sağlayamadığı yerel özellikler gerekirse ileride aynı API (`/api/v1`) ile Flutter veya React Native uygulamasına geçilebilir.
+
 ## REST API (web ve Android uygulaması için)
 
 | Uç nokta                                                                 | Açıklama                                               |
@@ -101,17 +116,17 @@ Organizatör işlemleri `/api/account/*`, yönetim işlemleri `/api/admin/*` alt
 
 ## PRD'ye göre durum
 
-| PRD maddesi                                 | Durum                                                                          |
-| ------------------------------------------- | ------------------------------------------------------------------------------ |
-| Marka renkleri ve modern arayüz             | Tamam                                                                          |
-| Promosyon kodu modülü                       | Tamam                                                                          |
-| Kademeli ilan paketleri ve dopingler        | Tamam. Ödeme şimdilik havale/EFT + panel onayı                                 |
-| SMS OTP iletişim bariyeri                   | Tamam. Netgsm hesabı ve ortam değişkenleri gerekli                             |
-| Kara liste (2 ihbar → kalıcı engel)         | Tamam                                                                          |
-| Organizatör randevu takvimi (CRM)           | Tamam                                                                          |
-| REST API v1                                 | Tamam                                                                          |
-| Kartla ödeme (iyzico / PayTR)               | Bekliyor: şirket ve sanal POS başvurusu gerekli                                |
-| Android uygulaması (Flutter / React Native) | Bekliyor: ayrı proje. Şimdilik site telefona uygulama olarak kurulabilir (PWA) |
+| PRD maddesi                          | Durum                                                                       |
+| ------------------------------------ | --------------------------------------------------------------------------- |
+| Marka renkleri ve modern arayüz      | Tamam                                                                       |
+| Promosyon kodu modülü                | Tamam                                                                       |
+| Kademeli ilan paketleri ve dopingler | Tamam. Ödeme şimdilik havale/EFT + panel onayı                              |
+| SMS OTP iletişim bariyeri            | Tamam. Netgsm hesabı ve ortam değişkenleri gerekli                          |
+| Kara liste (2 ihbar → kalıcı engel)  | Tamam                                                                       |
+| Organizatör randevu takvimi (CRM)    | Tamam                                                                       |
+| REST API v1                          | Tamam                                                                       |
+| Kartla ödeme (iyzico / PayTR)        | Bekliyor: şirket ve sanal POS başvurusu gerekli                             |
+| Android uygulaması                   | Hazır: Google Play'e TWA paketi olarak yüklenir (bkz. "Android uygulaması") |
 
 ## Yerelde çalıştırma
 

@@ -1,10 +1,10 @@
-// İlan iletişim tıklama sayaçları (PRD: phone_clicks, whatsapp_clicks) ve teklif talebi sayısı.
+// İlan sayaçları: görüntülenme, iletişim tıklamaları (PRD: phone_clicks, whatsapp_clicks) ve teklif talebi sayısı.
 import { getStore } from "@netlify/blobs";
 
 const store = () => getStore({ name: "stats", consistency: "strong" });
 export const CLICK_TYPES = ["phone", "whatsapp"];
-const STAT_TYPES = [...CLICK_TYPES, "request"];
-const EMPTY = { phone: 0, whatsapp: 0, request: 0 };
+const STAT_TYPES = [...CLICK_TYPES, "request", "view"];
+const EMPTY = { view: 0, phone: 0, whatsapp: 0, request: 0 };
 
 export async function countClick(listingId, type) {
   if (!STAT_TYPES.includes(type)) return;
