@@ -1,5 +1,6 @@
 // Üye hesabı: giriş/kayıt, ilanlar, paket ve doping satın alma, ödemeler, randevu takvimi ve profil.
 import { CITY_NAMES, districtsOf } from "/assets/js/locations.js";
+import { isoDate, renderAgenda } from "/hesap/agenda.js";
 import {
   api,
   fill,
@@ -30,7 +31,6 @@ const state = {
 };
 const MAX_IMAGES = 12;
 const PRICE_NOTES = ["başlayan fiyatlarla", "paket fiyatı", "kişi başı", "saatlik", "günlük"];
-const BOOKING_STATUSES = { option: "Opsiyon", confirmed: "Kesinleşti", done: "Tamamlandı", cancelled: "İptal" };
 const BLACKLIST_REASONS = {
   "sahte-adres": "Asılsız ya da yanlış adres verdi",
   "kapida-iptal": "Adrese gidildiğinde iptal etti",
@@ -658,7 +658,7 @@ function shell(page) {
           tab("yeni-ilan", "Yeni ilan", "plus"),
           tab("talepler", "Talepler", "mail", state.newRequests),
           tab("yorumlar", "Yorumlar", "star"),
-          tab("takvim", "Takvim", "calendar"),
+          tab("takvim", "Ajanda", "calendar"),
           tab("odemeler", "Ödemeler", "wallet"),
           tab("profil", "Profil", "user"),
           h("button", { type: "button", class: "acc-tab", onclick: logout }, ic("logout"), h("span", {}, "Çıkış")),
@@ -1454,7 +1454,7 @@ const REQUEST_TONE = { new: "warn", contacted: "accent", won: "ok", lost: "muted
 async function renderRequests(view) {
   document.title = `Talepler | ${state.siteName}`;
   fill(view, h("h2", { class: "acc-title" }, "Teklif talepleri"), h("p", { class: "loading" }, "Yükleniyor…"));
-  let requests = (await api("/api/account/requests")).requests;
+  let [{ requests }, { bookings }] = await Promise.all([api("/api/account/requests"), api("/api/account/bookings")]);
   let filter = "all";
   const list = h("div", { class: "rq-list" });
   const chips = h("div", { class: "acc-counts" });
@@ -1474,6 +1474,33 @@ async function renderRequests(view) {
   };
   // Müşteri arandığında talep "Görüşüldü" olarak işaretlenir.
   const contacted = (r) => r.status === "new" && save(r, { status: "contacted" }).catch(() => {});
+
+  // Talepten ajanda kaydı taslağı
+  const toAgenda = (r) => {
+    const event = state.events.find((e) => e.id === r.event);
+    state.bookingDraft = {
+      clientName: r.name,
+      clientPhone: r.phone,
+      eventDate: r.eventDate || isoDate(new Date()),
+      listingId: r.listingId,
+      status: r.status === "won" ? "confirmed" : "option",
+      note: [event?.name, r.guests ? `${r.guests} kişi` : "", r.message].filter(Boolean).join(" · "),
+    };
+    go("takvim");
+  };
+  // Talepteki tarih ajandada dolu mu?
+  const dayInfo = (r) => {
+    if (!r.eventDate) return null;
+    const busy = bookings.filter((b) => b.eventDate === r.eventDate && b.status !== "cancelled");
+    if (!busy.length) return h("li", { class: "rq-free" }, ic("check"), "Bu tarih ajandanızda boş");
+    const closed = busy.some((b) => b.kind === "block" && !b.eventTime);
+    return h(
+      "li",
+      { class: "rq-busy" },
+      ic("calendar"),
+      closed ? "Bu tarihte kapalısınız" : `Bu tarihte ajandanızda ${busy.length} kayıt var`,
+    );
+  };
 
   const card = (r) => {
     const event = state.events.find((e) => e.id === r.event);
@@ -1512,6 +1539,7 @@ async function renderRequests(view) {
         "ul",
         { class: "rq-facts" },
         h("li", {}, ic("calendar"), r.eventDate ? fmtDay(r.eventDate) : "Tarih belirtilmedi"),
+        dayInfo(r),
         r.guests ? h("li", {}, ic("user"), `${r.guests.toLocaleString("tr-TR")} kişi`) : null,
         event ? h("li", {}, ic(event.icon), event.name) : null,
       ),
@@ -1542,7 +1570,14 @@ async function renderRequests(view) {
           {
             class: "rq-status",
             "aria-label": "Talep durumu",
-            onchange: (e) => save(r, { status: e.target.value }),
+            onchange: async (e) => {
+              await save(r, { status: e.target.value });
+              // Anlaşılan iş ajandaya aktarılır (form doldurulmuş açılır)
+              if (e.target.value === "won") {
+                toast("Anlaşılan işi ajandanıza kaydedin.", "success");
+                toAgenda({ ...r, status: "won" });
+              }
+            },
           },
           Object.entries(REQUEST_STATUSES).map(([k, v]) => h("option", { value: k, selected: k === r.status }, v)),
         ),
@@ -1551,21 +1586,10 @@ async function renderRequests(view) {
           {
             type: "button",
             class: "btn btn-light btn-sm",
-            onclick: () => {
-              const event = state.events.find((e) => e.id === r.event);
-              state.bookingDraft = {
-                clientName: r.name,
-                clientPhone: r.phone,
-                eventDate: r.eventDate || isoDate(new Date()),
-                listingId: r.listingId,
-                status: "option",
-                note: [event?.name, r.guests ? `${r.guests} kişi` : "", r.message].filter(Boolean).join(" · "),
-              };
-              go("takvim");
-            },
+            onclick: () => toAgenda(r),
           },
           ic("calendar"),
-          "Takvime ekle",
+          "Ajandaya ekle",
         ),
       ),
       h("label", { class: "rq-note" }, h("span", {}, "Notunuz"), note),
@@ -1651,7 +1675,7 @@ async function renderRequests(view) {
     h(
       "p",
       { class: "panel-lead rq-lead" },
-      "Müşteriyi aradığınızda talep “Görüşüldü” olarak işaretlenir. Anlaştığınız işi “Takvime ekle” ile randevu takviminize aktarın.",
+      "Müşteriyi aradığınızda talep “Görüşüldü” olarak işaretlenir. Talebi “Anlaşıldı” yaptığınızda iş ajandanıza aktarılır.",
     ),
     list,
   );
@@ -1749,341 +1773,6 @@ async function renderReviews(view) {
           ),
         ),
   );
-}
-
-/* ---------- Takvim (CRM) ---------- */
-
-const pad = (n) => String(n).padStart(2, "0");
-const isoDate = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-const BOOKING_TONE = { confirmed: "ok", cancelled: "muted", done: "accent", option: "warn" };
-
-async function renderCalendar(view) {
-  document.title = `Takvim | ${state.siteName}`;
-  let bookings = (await api("/api/account/bookings")).bookings;
-  const month = new Date();
-  month.setDate(1);
-  let selectedDay = isoDate(new Date());
-
-  const calendarEl = h("div", { class: "crm-cal" });
-  const dayEl = h("div", { class: "crm-day" });
-  const upcomingEl = h("div", { class: "crm-upcoming" });
-
-  const reload = async () => {
-    bookings = (await api("/api/account/bookings")).bookings;
-    render();
-  };
-
-  const bookingRow = (b) =>
-    h(
-      "article",
-      { class: "booking" },
-      h(
-        "div",
-        { class: "booking-main" },
-        h("strong", {}, b.clientName),
-        h("span", {}, [fmtDay(b.eventDate), b.eventTime, b.location].filter(Boolean).join(" · ")),
-        h(
-          "span",
-          { class: "muted" },
-          [
-            b.clientPhone,
-            b.totalAmount ? `Toplam ${fmtPrice(b.totalAmount)}` : "",
-            b.deposit ? `Kapora ${fmtPrice(b.deposit)}` : "",
-          ]
-            .filter(Boolean)
-            .join(" · "),
-        ),
-      ),
-      h("span", { class: `status status-${BOOKING_TONE[b.status]}` }, BOOKING_STATUSES[b.status]),
-      h("button", { type: "button", class: "btn btn-light btn-sm", onclick: () => bookingDialog(b) }, "Düzenle"),
-    );
-
-  function render() {
-    const first = new Date(month);
-    const days = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
-    const lead = (first.getDay() + 6) % 7;
-    const byDay = {};
-    for (const b of bookings) if (b.status !== "cancelled") (byDay[b.eventDate] ||= []).push(b);
-    const today = isoDate(new Date());
-    const cells = [];
-    for (let i = 0; i < lead; i++) cells.push(h("span", { class: "cal-cell is-empty" }));
-    for (let d = 1; d <= days; d++) {
-      const key = isoDate(new Date(first.getFullYear(), first.getMonth(), d));
-      const list = byDay[key] || [];
-      const cls = [
-        "cal-cell",
-        list.length && "has-booking",
-        list.length > 1 && "is-double",
-        key === today && "is-today",
-        key === selectedDay && "is-selected",
-      ];
-      cells.push(
-        h(
-          "button",
-          {
-            type: "button",
-            class: cls.filter(Boolean).join(" "),
-            onclick: () => {
-              selectedDay = key;
-              render();
-            },
-            "aria-label": `${d}${list.length ? ` (${list.length} kayıt)` : ""}`,
-          },
-          String(d),
-          list.length
-            ? h(
-                "span",
-                { class: "cal-dots" },
-                list.slice(0, 3).map(() => h("i")),
-              )
-            : null,
-        ),
-      );
-    }
-    const shift = (n) => {
-      month.setMonth(month.getMonth() + n);
-      render();
-    };
-    fill(
-      calendarEl,
-      h(
-        "div",
-        { class: "crm-cal-head" },
-        h(
-          "button",
-          { type: "button", class: "icon-btn", "aria-label": "Önceki ay", onclick: () => shift(-1) },
-          ic("chevron", "icon rot-left"),
-        ),
-        h("h3", {}, first.toLocaleDateString("tr-TR", { month: "long", year: "numeric" })),
-        h(
-          "button",
-          { type: "button", class: "icon-btn", "aria-label": "Sonraki ay", onclick: () => shift(1) },
-          ic("chevron"),
-        ),
-      ),
-      h(
-        "div",
-        { class: "cal-grid" },
-        ["Pt", "Sa", "Ça", "Pe", "Cu", "Ct", "Pz"].map((w) => h("span", { class: "cal-head" }, w)),
-        cells,
-      ),
-      h(
-        "p",
-        { class: "cal-legend" },
-        h("i", { class: "dot-one" }),
-        "Kayıt var ",
-        h("i", { class: "dot-two" }),
-        "Aynı gün birden fazla kayıt",
-      ),
-    );
-    const dayList = bookings.filter((b) => b.eventDate === selectedDay);
-    fill(
-      dayEl,
-      h(
-        "div",
-        { class: "panel-head" },
-        h("h3", {}, fmtDay(selectedDay)),
-        h(
-          "button",
-          { type: "button", class: "btn btn-action btn-sm", onclick: () => bookingDialog({ eventDate: selectedDay }) },
-          ic("plus"),
-          "Kayıt ekle",
-        ),
-      ),
-      dayList.length ? dayList.map(bookingRow) : h("p", { class: "muted" }, "Bu güne kayıt yok."),
-    );
-    const upcoming = bookings.filter((b) => b.eventDate >= today && b.status !== "cancelled").slice(0, 8);
-    fill(
-      upcomingEl,
-      h("h3", {}, "Yaklaşan işler"),
-      upcoming.length ? upcoming.map(bookingRow) : h("p", { class: "muted" }, "Yaklaşan kayıt yok."),
-    );
-  }
-
-  function bookingDialog(b) {
-    const status = statusLine();
-    const form = h(
-      "form",
-      { class: "form-grid", novalidate: true },
-      field(
-        "Müşteri adı",
-        h("input", { name: "clientName", value: b.clientName || "", maxlength: 80, required: true }),
-      ),
-      field(
-        "Müşteri telefonu",
-        h("input", { name: "clientPhone", type: "tel", value: b.clientPhone || "", placeholder: "05xx xxx xx xx" }),
-      ),
-      field("Tarih", h("input", { name: "eventDate", type: "date", value: b.eventDate || "", required: true })),
-      field("Saat", h("input", { name: "eventTime", type: "time", value: b.eventTime || "" })),
-      field("Adres / mekân", h("input", { name: "location", value: b.location || "", maxlength: 160 }), { wide: true }),
-      field(
-        "İlan",
-        h(
-          "select",
-          { name: "listingId" },
-          h("option", { value: "" }, "Seçilmedi"),
-          state.listings.map((l) => h("option", { value: l.id, selected: l.id === b.listingId }, l.title)),
-        ),
-      ),
-      field(
-        "Durum",
-        h(
-          "select",
-          { name: "status" },
-          Object.entries(BOOKING_STATUSES).map(([k, v]) =>
-            h("option", { value: k, selected: k === (b.status || "option") }, v),
-          ),
-        ),
-      ),
-      field("Toplam tutar (₺)", h("input", { name: "totalAmount", inputmode: "numeric", value: b.totalAmount || "" })),
-      field("Alınan kapora (₺)", h("input", { name: "deposit", inputmode: "numeric", value: b.deposit || "" })),
-      field("Not", h("textarea", { name: "note", rows: 2, maxlength: 1000, value: b.note || "" }), { wide: true }),
-    );
-    const save = async (force = false) => {
-      const body = { ...Object.fromEntries(new FormData(form)), force };
-      try {
-        const result = await api(b.id ? `/api/account/bookings/${b.id}` : "/api/account/bookings", {
-          method: b.id ? "PUT" : "POST",
-          body,
-        });
-        if (result.warning) {
-          toast(
-            result.warning.blocked
-              ? "Dikkat: Bu müşteri numarası kara listede (engellenmiş)."
-              : `Dikkat: Bu numara hakkında ${result.warning.reports} kötü niyet ihbarı var.`,
-            "error",
-          );
-        } else toast("Kayıt kaydedildi.", "success");
-        dialog.close();
-        selectedDay = body.eventDate;
-        await reload();
-      } catch (err) {
-        if (
-          err.status === 409 &&
-          confirm("Bu tarihte başka bir kaydınız var (çifte rezervasyon). Yine de kaydedilsin mi?")
-        )
-          return save(true);
-        setStatus(status, err.message, "error");
-      }
-    };
-    const dialog = openDialog(
-      b.id ? "Kaydı düzenle" : "Yeni kayıt",
-      form,
-      status,
-      h(
-        "div",
-        { class: "dialog-actions" },
-        b.id
-          ? h(
-              "button",
-              {
-                type: "button",
-                class: "btn btn-ghost danger",
-                onclick: async () => {
-                  if (!confirm("Kayıt silinsin mi?")) return;
-                  await api(`/api/account/bookings/${b.id}`, { method: "DELETE" });
-                  dialog.close();
-                  await reload();
-                },
-              },
-              "Sil",
-            )
-          : null,
-        h("button", { type: "button", class: "btn btn-primary", onclick: () => save() }, "Kaydet"),
-      ),
-    );
-  }
-
-  // Kara liste bildirimi
-  const blStatus = statusLine();
-  const blForm = h(
-    "form",
-    {
-      class: "panel",
-      onsubmit: async (e) => {
-        e.preventDefault();
-        try {
-          const result = await api("/api/account/blacklist", {
-            method: "POST",
-            body: Object.fromEntries(new FormData(blForm)),
-          });
-          blForm.reset();
-          setStatus(
-            blStatus,
-            result.blocked ? "Bildiriminiz alındı. Bu numara artık engellendi." : "Bildiriminiz alındı. Teşekkürler.",
-            "success",
-          );
-        } catch (err) {
-          setStatus(blStatus, err.message, "error");
-        }
-      },
-    },
-    h("h2", {}, "Kötü niyetli müşteri bildir"),
-    h(
-      "p",
-      { class: "panel-lead" },
-      "Asılsız adres veren ya da kapıda iptal eden müşterileri bildirin. Farklı organizatörlerden 2 ihbar alan numara kalıcı olarak engellenir ve iletişim bilgilerini göremez.",
-    ),
-    h(
-      "div",
-      { class: "form-grid" },
-      field(
-        "Müşteri telefonu",
-        h("input", { name: "phone", type: "tel", required: true, placeholder: "05xx xxx xx xx" }),
-      ),
-      field(
-        "Neden",
-        h(
-          "select",
-          { name: "reason" },
-          Object.entries(BLACKLIST_REASONS).map(([k, v]) => h("option", { value: k }, v)),
-        ),
-      ),
-      field("Açıklama (isteğe bağlı)", h("textarea", { name: "note", rows: 2, maxlength: 500 }), { wide: true }),
-    ),
-    blStatus,
-    h("div", { class: "panel-actions" }, h("button", { class: "btn btn-light", type: "submit" }, "Bildir")),
-  );
-
-  // "Talepler"den gelen kayıt taslağı: ilgili ay açılır ve form doldurulmuş gelir.
-  const draft = state.bookingDraft;
-  state.bookingDraft = null;
-  if (draft?.eventDate) {
-    const [y, m] = draft.eventDate.split("-").map(Number);
-    month.setFullYear(y, m - 1, 1);
-    selectedDay = draft.eventDate;
-  }
-
-  render();
-  fill(
-    view,
-    h(
-      "div",
-      { class: "acc-toolbar" },
-      h("h2", { class: "acc-title" }, "Randevu takvimi"),
-      h(
-        "button",
-        { type: "button", class: "btn btn-action", onclick: () => bookingDialog({ eventDate: selectedDay }) },
-        ic("plus"),
-        "Yeni kayıt",
-      ),
-    ),
-    h(
-      "div",
-      { class: "crm-layout" },
-      h("section", { class: "panel" }, calendarEl),
-      h("section", { class: "panel" }, dayEl),
-    ),
-    h("section", { class: "panel" }, upcomingEl),
-    blForm,
-  );
-  if (draft) bookingDialog(draft);
-  if (state.blacklistPhone) {
-    blForm.phone.value = state.blacklistPhone;
-    state.blacklistPhone = "";
-    blForm.scrollIntoView({ behavior: "smooth", block: "center" });
-    blForm.reason.focus();
-  }
 }
 
 /* ---------- Profil ---------- */
@@ -2266,7 +1955,8 @@ function route() {
   if (page === "yeni-ilan") return renderEditor(view);
   if (page === "duzenle") return renderEditor(view, param);
   if (page === "odemeler") return renderOrders(view).catch(failed);
-  if (page === "takvim") return renderCalendar(view).catch(failed);
+  if (page === "takvim")
+    return renderAgenda(view, { state, field, statusLine, setStatus, openDialog, BLACKLIST_REASONS }).catch(failed);
   if (page === "talepler") return renderRequests(view).catch(failed);
   if (page === "yorumlar") return renderReviews(view).catch(failed);
   if (page === "profil") return renderProfile(view);

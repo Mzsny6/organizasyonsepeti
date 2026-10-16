@@ -51,9 +51,10 @@ export function toast(message, type = "info") {
 }
 
 export class ApiError extends Error {
-  constructor(status, message) {
+  constructor(status, message, data = {}) {
     super(message);
     this.status = status;
+    this.data = data;
   }
 }
 
@@ -70,7 +71,7 @@ export async function api(path, { method = "GET", body, headers = {}, quiet401 =
   });
   const data = await res.json().catch(() => ({}));
   if (res.status === 401 && !quiet401) onUnauthorized(data.error);
-  if (!res.ok) throw new ApiError(res.status, data.error || "İşlem başarısız oldu.");
+  if (!res.ok) throw new ApiError(res.status, data.error || "İşlem başarısız oldu.", data);
   return data;
 }
 

@@ -2,5 +2,6 @@ User-agent: *
 Disallow: /admin/
 Disallow: /hesap/
 Disallow: /api/
+Disallow: /takvim/
 
 Sitemap: https://organizasyonsepeti.net/sitemap.xml

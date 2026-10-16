@@ -164,3 +164,53 @@ test("ziyaret istatistiği sınıflandırması", async () => {
   assert.equal(normalizePath("https://kotu.site/"), "");
   assert.equal(normalizePath('/"><script>'), "");
 });
+
+test("ajanda: çakışma kuralları ve telefon takvimi dosyası", async () => {
+  const { bookingsToIcs, findConflicts } = await import("../netlify/lib/bookings.mjs");
+  const job = (id, eventTime = "", endTime = "", extra = {}) => ({
+    id,
+    kind: "job",
+    eventDate: "2026-11-20",
+    eventTime,
+    endTime,
+    status: "confirmed",
+    ...extra,
+  });
+  const morning = job("a", "10:00", "13:00");
+  const evening = { kind: "job", eventDate: "2026-11-20", eventTime: "18:00", endTime: "22:00", status: "option" };
+  assert.equal(findConflicts([morning], evening, 1).length, 1, "kapasite 1: aynı gün ikinci iş çakışır");
+  assert.equal(findConflicts([morning], evening, 2).length, 0, "kapasite 2: saatler ayrıysa sorun yok");
+  const overlap = { ...evening, eventTime: "12:00", endTime: "15:00" };
+  assert.equal(findConflicts([morning], overlap, 5).length, 1, "saat çakışması kapasiteden bağımsız");
+  assert.equal(findConflicts([morning, job("b", "14:00", "16:00")], evening, 2).length, 2, "kapasite dolunca");
+  const closed = { id: "c", kind: "block", eventDate: "2026-11-20", eventTime: "", endTime: "", status: "confirmed" };
+  assert.equal(findConflicts([closed], evening, 5).length, 1, "kapalı güne iş eklenemez");
+  assert.equal(findConflicts([morning], { ...closed, id: undefined }, 5).length, 1, "işi olan gün kapatılırken uyarır");
+  assert.equal(findConflicts([morning], { ...evening, status: "cancelled" }, 1).length, 0, "iptal kayıt çakışmaz");
+  assert.equal(findConflicts([morning], { ...morning }, 1, "a").length, 0, "kendisiyle çakışmaz");
+
+  const ics = bookingsToIcs({ company: "Anı Fotoğraf" }, [
+    {
+      ...morning,
+      clientName: "Ayşe; Yılmaz",
+      clientPhone: "0532 111 22 33",
+      location: "Kadıköy, İstanbul",
+      totalAmount: 15000,
+      deposit: 5000,
+      note: "Gelin evi çekimi",
+      updatedAt: "2026-10-16T08:00:00.000Z",
+    },
+    { ...closed, note: "Yıllık izin", updatedAt: "2026-10-16T08:00:00.000Z" },
+    { ...job("d"), status: "cancelled", updatedAt: "2026-10-16T08:00:00.000Z" },
+  ]);
+  assert.match(ics, /^BEGIN:VCALENDAR\r\n/);
+  assert.match(ics, /DTSTART:20261120T070000Z\r\n/, "Türkiye saati UTC'ye çevrilir");
+  assert.match(ics, /SUMMARY:Ayşe\\; Yılmaz/);
+  assert.match(ics, /LOCATION:Kadıköy\\, İstanbul/);
+  assert.match(ics, /DTSTART;VALUE=DATE:20261120\r\nDTEND;VALUE=DATE:20261121/, "kapalı gün tüm gün");
+  assert.equal(ics.match(/BEGIN:VEVENT/g).length, 2, "iptal kayıt takvime gitmez");
+  assert.ok(
+    ics.split("\r\n").every((line) => Buffer.byteLength(line) <= 75),
+    "satırlar 75 baytı geçmez",
+  );
+});

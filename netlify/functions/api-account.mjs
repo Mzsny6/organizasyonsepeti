@@ -1,7 +1,17 @@
 // Üye hesabı: kayıt, giriş, profil; organizatörler için ilanlar, paketler, dopingler, takvim ve kara liste.
 import { recordEvent } from "../lib/analytics.mjs";
 import { reportPhone } from "../lib/blacklist.mjs";
-import { BOOKING_ID, deleteBooking, deleteUserBookings, listBookings, saveBooking } from "../lib/bookings.mjs";
+import {
+  BOOKING_ID,
+  agendaSettings,
+  deleteBooking,
+  deleteUserBookings,
+  disableIcs,
+  listBookings,
+  resetIcsToken,
+  saveBooking,
+  updateAgendaSettings,
+} from "../lib/bookings.mjs";
 import { purgeSite } from "../lib/cache.mjs";
 import { getContent } from "../lib/content.mjs";
 import { checkPassword } from "../lib/crypto.mjs";
@@ -291,6 +301,20 @@ export default async (req, context) => {
     if (section === "orders" && method === "GET") return json({ orders: await listOrders({ userId: user.id }) });
     if (section === "listings") return await listingRoutes(req, user, content, rest);
     if (section === "bookings") return await bookingRoutes(req, user, rest);
+
+    // Ajanda ayarları: günlük kapasite ve telefon takvimine (Google / iPhone) abonelik bağlantısı
+    if (section === "agenda") {
+      const siteUrl = content.settings.siteUrl;
+      if (!rest[0] && method === "GET") return json(agendaSettings(user, siteUrl));
+      if (!rest[0] && method === "PUT") {
+        await updateAgendaSettings(user, await readJson(req, 1024));
+        await purgeSite(); // kapasite ilandaki dolu günleri etkiler
+        return json(agendaSettings(user, siteUrl));
+      }
+      if (rest[0] === "ics" && method === "POST") return json(agendaSettings(await resetIcsToken(user), siteUrl));
+      if (rest[0] === "ics" && method === "DELETE") return json(agendaSettings(await disableIcs(user), siteUrl));
+      return fail(404, "Bulunamadı.");
+    }
 
     // Firmanın yayındaki değerlendirmeleri ve yanıt
     if (section === "reviews") {

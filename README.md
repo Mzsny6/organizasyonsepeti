@@ -23,8 +23,16 @@ Site **Netlify** üzerinde çalışır: sayfalar ve API'ler Netlify Functions (N
 - Üyelik (T.C. kimlik/vergi no ile), fotoğraflı ilan verme ve düzenleme.
 - Hizmet kademesine göre 1/3/12 aylık ilan paketleri, **promosyon kodu** (ör. `MAYA3AY`), doping satın alma.
 - Ödemeler: kartla ödeme bağlanana kadar havale/EFT; sipariş numarası ve IBAN gösterilir.
-- **Randevu takvimi (CRM):** iş kayıtları, kapora/toplam tutar, çifte rezervasyon uyarısı, ilanda dolu günleri gösterme.
-- **Teklif talepleri:** gelen talepler, durum takibi (Yeni / Görüşüldü / Anlaşıldı / Olmadı), özel not, tek tıkla arama/WhatsApp, "Takvime ekle".
+- **Ajanda (CRM):** organizatörün iş defteri.
+  - Ay, hafta ve liste görünümü; arama, durum filtresi, geçmiş işler.
+  - Başlangıç/bitiş saatli işler. Aynı saate çakışan iş veya kapalı saat engellenir; "Yine de kaydet" ile bilerek geçilebilir.
+  - **Günlük kapasite:** bir günde kaç iş alınabileceği (1–10). Kapasite dolunca gün ilanda "dolu" görünür.
+  - **Kapalı gün / saat:** tatil, özel iş vb. için takvimi kapatma.
+  - **Ödeme takibi:** toplam, alınan kapora, kalan alacak özeti; tek tıkla "Ödendi".
+  - **WhatsApp teyidi:** müşteriye tarih, saat ve adresi içeren hazır mesaj.
+  - Tarihi geçmiş işler için "Hepsini tamamlandı yap" hatırlatması.
+  - **Telefon takvimi:** kişiye özel gizli `/takvim/<anahtar>.ics` bağlantısı; Google Takvim, iPhone ve Outlook'a abone olunur, işten 1 gün önce hatırlatır. Bağlantı yenilenebilir veya kapatılabilir.
+- **Teklif talepleri:** gelen talepler, durum takibi (Yeni / Görüşüldü / Anlaşıldı / Olmadı), özel not, tek tıkla arama/WhatsApp. Talep kartı o tarihte ajandanın boş mu dolu mu olduğunu gösterir; "Anlaşıldı" seçilince iş ajandaya hazır doldurulmuş olarak açılır.
 - **Kara liste:** asılsız adres veren / kapıda iptal eden müşteriyi bildirme. Farklı organizatörlerden 2 ihbar alan numara kalıcı engellenir.
 - Telefon, WhatsApp ve teklif talebi istatistikleri.
 - **Şifremi unuttum:** profilde doğrulanan telefona gelen SMS koduyla yeni şifre.
@@ -126,7 +134,7 @@ Organizatör işlemleri `/api/account/*`, yönetim işlemleri `/api/admin/*` alt
 | Kademeli ilan paketleri ve dopingler | Tamam. Ödeme şimdilik havale/EFT + panel onayı                              |
 | SMS OTP iletişim bariyeri            | Tamam. Netgsm hesabı ve ortam değişkenleri gerekli                          |
 | Kara liste (2 ihbar → kalıcı engel)  | Tamam                                                                       |
-| Organizatör randevu takvimi (CRM)    | Tamam                                                                       |
+| Organizatör randevu takvimi (CRM)    | Tamam. Kapasite, kapalı gün, ödeme takibi ve telefon takvimi ile ajanda     |
 | REST API v1                          | Tamam                                                                       |
 | Kartla ödeme (iyzico / PayTR)        | Bekliyor: şirket ve sanal POS başvurusu gerekli                             |
 | Android uygulaması                   | Hazır: Google Play'e TWA paketi olarak yüklenir (bkz. "Android uygulaması") |
@@ -161,7 +169,8 @@ netlify/functions/
   page.mjs                   Sayfalar: /, /ilanlar, /hizmet/..., /il/..., /etkinlik/..., /ilan/:slug, /firma/:slug,
                              /favoriler, /iletisim, /kvkk, /kullanim-kosullari
   api-v1.mjs                 PRD REST uç noktaları
-  api-account.mjs            Üyelik, şifre sıfırlama, ilanlar, siparişler, teklif talepleri, takvim, kara liste
+  api-account.mjs            Üyelik, şifre sıfırlama, ilanlar, siparişler, teklif talepleri, ajanda, kara liste
+  ics.mjs                    /takvim/<anahtar>.ics: organizatörün telefon takvimi aboneliği
   api-admin.mjs              Moderasyon, ödemeler, promosyonlar, üyeler, kara liste, şikâyetler
   api-auth.mjs               Panel girişi
   api-content.mjs            Site içeriği ve yedekler

@@ -326,6 +326,53 @@ test("değerlendirme: yalnızca teklif isteyen müşteri yazar, yönetici onayla
   assert.equal((await client.get(url)).data.reviews[0].reply, "Teşekkür ederiz!");
 });
 
+test("ajanda: saat aralığı, günlük kapasite, kapalı gün ve telefon takvimi", async () => {
+  const date = new Date(Date.now() + 60 * 864e5).toISOString().slice(0, 10);
+  const base = { clientName: "Zeynep Arslan", clientPhone: "0533 444 55 66", eventDate: date, status: "confirmed" };
+  const first = await organizer.post("/api/account/bookings", { ...base, eventTime: "10:00", endTime: "13:00" });
+  assert.equal(first.status, 201, JSON.stringify(first.data));
+  const second = { ...base, clientName: "Can Demir", eventTime: "18:00", endTime: "22:00" };
+  assert.equal((await organizer.post("/api/account/bookings", second)).status, 409, "kapasite 1");
+
+  const capacity = await organizer.put("/api/account/agenda", { dailyCapacity: 2 });
+  assert.equal(capacity.data.dailyCapacity, 2);
+  assert.equal((await organizer.post("/api/account/bookings", second)).status, 201, "kapasite 2, saatler ayrı");
+  const clash = { ...base, clientName: "Ali", eventTime: "12:00", endTime: "14:00" };
+  assert.equal((await organizer.post("/api/account/bookings", clash)).status, 409, "kapasite doldu");
+  assert.equal(
+    (await organizer.post("/api/account/bookings", { ...base, eventTime: "15:00", endTime: "14:00" })).status,
+    400,
+  );
+
+  let busy = (await organizer.get("/api/v1/organizer/calendar")).data.busy;
+  assert.ok(busy.includes(date), "kapasite dolan gün ilanda dolu görünür");
+  const closedDay = new Date(Date.now() + 61 * 864e5).toISOString().slice(0, 10);
+  const block = await organizer.post("/api/account/bookings", { kind: "block", eventDate: closedDay, note: "İzin" });
+  assert.equal(block.status, 201);
+  assert.equal(block.data.booking.clientName, "Kapalı");
+  busy = (await organizer.get("/api/v1/organizer/calendar")).data.busy;
+  assert.ok(busy.includes(closedDay), "kapalı gün ilanda dolu görünür");
+  assert.equal(
+    (await organizer.post("/api/account/bookings", { ...base, eventDate: closedDay })).status,
+    409,
+    "kapalı güne iş eklenemez",
+  );
+
+  assert.equal((await organizer.get("/api/account/agenda")).data.icsUrl, "");
+  const { icsUrl } = (await organizer.post("/api/account/agenda/ics", {})).data;
+  const path = new URL(icsUrl).pathname;
+  const feed = await new Client(server.base).get(path);
+  assert.equal(feed.status, 200);
+  assert.match(feed.headers.get("content-type"), /text\/calendar/);
+  assert.ok(feed.data.includes("SUMMARY:Zeynep Arslan"));
+  assert.ok(feed.data.includes("SUMMARY:Kapalı · İzin"));
+  const renewed = (await organizer.post("/api/account/agenda/ics", {})).data.icsUrl;
+  assert.notEqual(renewed, icsUrl);
+  assert.equal((await new Client(server.base).get(path)).status, 404, "eski bağlantı çalışmaz");
+  assert.equal((await new Client(server.base).get("/takvim/yanlis.ics")).status, 404);
+  assert.equal((await client.get("/api/account/agenda")).status, 403, "ziyaretçi ajandaya erişemez");
+});
+
 test("şifremi unuttum: doğrulanmış telefona gelen kodla yeni şifre", async () => {
   await verifyPhone(organizer, ORGANIZER_MOBILE);
   const me = await organizer.get("/api/account/me");
