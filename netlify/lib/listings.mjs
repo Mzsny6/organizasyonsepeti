@@ -3,7 +3,7 @@
 import { getStore } from "@netlify/blobs";
 import { randomBytes } from "node:crypto";
 import { isValidLocation } from "../../public/assets/js/locations.js";
-import { mediaStore } from "./content.mjs";
+import { getContent, mediaStore, usedMediaKeys } from "./content.mjs";
 import { HttpError } from "./http.mjs";
 import { foldText, slugify } from "./text.mjs";
 import { deleteStats } from "./stats.mjs";
@@ -90,13 +90,41 @@ export function validateListingInput(input, content) {
   return listing;
 }
 
-// Görsellerin gerçekten bu üye tarafından yüklendiğini doğrular.
-async function assertOwnImages(images, ownerId) {
+const NOT_YOURS = "Fotoğraflardan biri hesabınıza ait görünmüyor. Lütfen o fotoğrafı kaldırıp yeniden yükleyin.";
+
+// Görsellerin gerçekten bu üye tarafından yüklendiğini doğrular. Aynı tarayıcıda yönetim paneli de
+// açıkken yüklenen fotoğraf yöneticiye ait kaydedilmiş olabilir; istek yöneticiden de geliyorsa
+// (adminSession) bu fotoğraflar reddedilmez, kaydetmeden önce adoptImages ile üyeye aktarılır.
+// Dönen değer: üyeye aktarılacak anahtarlar.
+async function checkImages(images, ownerId, { adminSession = false } = {}) {
   const keys = images.map((url) => MEDIA_URL.exec(url)?.[1]);
-  const notYours = "Fotoğraflardan biri hesabınıza ait görünmüyor. Lütfen o fotoğrafı kaldırıp yeniden yükleyin.";
-  if (keys.some((k) => !k)) throw new HttpError(400, notYours);
+  if (keys.some((k) => !k)) throw new HttpError(400, NOT_YOURS);
   const metas = await Promise.all(keys.map((key) => mediaStore().getMetadata(key)));
-  if (metas.some((m) => m?.metadata?.owner !== ownerId)) throw new HttpError(400, notYours);
+  const adopt = [];
+  metas.forEach((m, i) => {
+    const owner = m?.metadata?.owner;
+    if (owner === ownerId) return;
+    if (owner === "admin" && adminSession) adopt.push(keys[i]);
+    else throw new HttpError(400, NOT_YOURS);
+  });
+  return adopt;
+}
+
+// Yöneticiye ait fotoğrafı üyenin fotoğrafı olarak yeni anahtara ("u…") taşır, ilandaki adresi günceller.
+async function adoptImages(images, keys, ownerId) {
+  if (!keys.length) return images;
+  const store = mediaStore();
+  const used = usedMediaKeys(await getContent());
+  const moved = new Map();
+  for (const key of keys) {
+    const blob = await store.getWithMetadata(key, { type: "arrayBuffer" });
+    if (!blob) throw new HttpError(400, NOT_YOURS);
+    const next = `u${key.slice(1)}`;
+    await store.set(next, blob.data, { metadata: { ...blob.metadata, owner: ownerId } });
+    if (!used.has(key)) await store.delete(key);
+    moved.set(`/media/${key}`, `/media/${next}`);
+  }
+  return images.map((url) => moved.get(url) || url);
 }
 
 const mediaKeysOf = (images) => images.map((url) => MEDIA_URL.exec(url)?.[1]).filter(Boolean);
@@ -171,9 +199,9 @@ async function saveListing(listing) {
   return listing;
 }
 
-export async function createListing(user, input, content) {
+export async function createListing(user, input, content, { adminSession = false } = {}) {
   const data = validateListingInput(input, content);
-  await assertOwnImages(data.images, user.id);
+  const adopt = await checkImages(data.images, user.id, { adminSession });
   const open = (await readIndex()).filter((x) => x.userId === user.id && x.status !== "rejected").length;
   if (open >= MAX_OPEN_PER_USER) {
     throw new HttpError(
@@ -181,6 +209,7 @@ export async function createListing(user, input, content) {
       `En fazla ${MAX_OPEN_PER_USER} ilanınız olabilir. Yeni ilan için eski ilanlarınızdan birini silin.`,
     );
   }
+  data.images = await adoptImages(data.images, adopt, user.id);
   const now = new Date().toISOString();
   return saveListing({
     id: randomBytes(5).toString("hex"),
@@ -202,9 +231,10 @@ export async function createListing(user, input, content) {
 }
 
 // İçerik değişen ilan yeniden onaya düşer.
-export async function updateListing(user, listing, input, content) {
+export async function updateListing(user, listing, input, content, { adminSession = false } = {}) {
   const data = validateListingInput(input, content);
-  await assertOwnImages(data.images, user.id);
+  const adopt = await checkImages(data.images, user.id, { adminSession });
+  data.images = await adoptImages(data.images, adopt, user.id);
   const removed = listing.images.filter((url) => !data.images.includes(url));
   Object.assign(listing, data, {
     company: user.company,

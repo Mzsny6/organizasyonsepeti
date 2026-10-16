@@ -18,6 +18,14 @@ function detectImage(bytes) {
   return null;
 }
 
+function fromAccountPage(req) {
+  try {
+    return new URL(req.headers.get("referer") || "").pathname.startsWith("/hesap");
+  } catch {
+    return false;
+  }
+}
+
 // Anahtar öneki yükleyeni gösterir: "s" site yönetimi, "u" üyeler.
 async function upload(req, owner) {
   const declared = Number(req.headers.get("content-length") || 0);
@@ -60,8 +68,9 @@ export default async (req, context) => {
     const key = context.params?.key;
     if (!key && req.method === "POST") {
       // Organizatör hesabı "?for=listing" ile yükler; aynı tarayıcıda yönetim paneli de açıksa
-      // fotoğraf yine organizatöre ait olmalı, yoksa ilan kaydında reddedilir.
-      const forListing = new URL(req.url).searchParams.get("for") === "listing";
+      // fotoğraf yine organizatöre ait olmalı, yoksa ilan kaydında reddedilir. Tarayıcıda eski
+      // sayfa kodu kalmışsa isteğin /hesap sayfasından geldiğine bakılır.
+      const forListing = new URL(req.url).searchParams.get("for") === "listing" || fromAccountPage(req);
       if (!forListing && (await isAdmin(req))) return await upload(req, "admin");
       const user = await getSessionUser(req);
       if (!user) return fail(401, "Oturumunuz sona erdi, lütfen tekrar giriş yapın.");

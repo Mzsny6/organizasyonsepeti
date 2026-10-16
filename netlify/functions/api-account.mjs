@@ -1,5 +1,6 @@
 // Üye hesabı: kayıt, giriş, profil; organizatörler için ilanlar, paketler, dopingler, takvim ve kara liste.
 import { recordEvent } from "../lib/analytics.mjs";
+import { isAdmin } from "../lib/auth.mjs";
 import { reportPhone } from "../lib/blacklist.mjs";
 import {
   BOOKING_ID,
@@ -163,7 +164,7 @@ async function listingRoutes(req, user, content, rest) {
       promoCode: body.promo,
       userId: user.id,
     });
-    const listing = await createListing(user, body, content);
+    const listing = await createListing(user, body, content, { adminSession: await isAdmin(req) });
     await Promise.all([countHit("listing-create", user.id, DAY), recordEvent("listing")]);
     const order = await createOrder(content, user, listing, {
       type: "package",
@@ -178,7 +179,7 @@ async function listingRoutes(req, user, content, rest) {
 
   if (!action && method === "GET") return json({ listing });
   if (!action && method === "PUT") {
-    await updateListing(user, listing, await readJson(req, 64 * 1024), content);
+    await updateListing(user, listing, await readJson(req, 64 * 1024), content, { adminSession: await isAdmin(req) });
     await purgeSite();
     return json({ listing });
   }

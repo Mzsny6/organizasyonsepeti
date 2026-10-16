@@ -1,9 +1,11 @@
 // Uygulama (PWA / Android) için çevrimdışı destek.
 // - Sayfalar: önce ağ; bağlantı yoksa son görülen kopya, o da yoksa "İnternet yok" sayfası.
-// - CSS/JS/simgeler: önbellekten hemen, arka planda yenilenir.
+// - Sürüm numaralı CSS/JS (?v=): önbellekten hemen, arka planda yenilenir.
+// - Numarasız dosyalar (ör. modüllerin içe aktardığı ui.js): önce ağ, bağlantı yoksa önbellek;
+//   böylece yeni sürümde sayfa kodu ile ortak kod birbirinden geri kalmaz.
 // - Fotoğraflar: önbellekte varsa oradan (en fazla 120 adet).
 // - API, yönetim paneli, hesap ve favoriler önbelleğe alınmaz (kişisel veri).
-const VERSION = "2";
+const VERSION = "3";
 const STATIC = `os-static-${VERSION}`;
 const PAGES = `os-pages-${VERSION}`;
 const IMAGES = `os-images-${VERSION}`;
@@ -60,6 +62,17 @@ async function asset(request) {
   return cached || refresh;
 }
 
+async function fresh(request) {
+  const cache = await caches.open(STATIC);
+  try {
+    const response = await fetch(request);
+    if (response.ok) await cache.put(request, response.clone());
+    return response;
+  } catch {
+    return (await cache.match(request)) || Response.error();
+  }
+}
+
 async function image(request) {
   const cache = await caches.open(IMAGES);
   const cached = await cache.match(request);
@@ -84,7 +97,7 @@ self.addEventListener("fetch", (event) => {
     return;
   }
   if (PRIVATE.test(url.pathname)) return;
-  if (url.pathname.startsWith("/assets/")) event.respondWith(asset(request));
+  if (url.pathname.startsWith("/assets/")) event.respondWith(url.search ? asset(request) : fresh(request));
   else if (url.pathname.startsWith("/.netlify/images") || url.pathname.startsWith("/media/"))
     event.respondWith(image(request));
 });

@@ -491,29 +491,45 @@ test("ilan fotoğrafı: yönetim paneli oturumu açıkken de organizatöre ait y
   // Aynı tarayıcıda hem yönetim paneline hem organizatör hesabına girilmiş
   const both = new Client(server.base);
   both.cookies = new Map([...organizer.cookies, ...admin.cookies]);
-  const upload = async (c, path) => {
+  const upload = async (c, path, headers = {}) => {
     const res = await fetch(server.base + path, {
       method: "POST",
-      headers: { "Content-Type": "image/png", Cookie: [...c.cookies].map(([k, v]) => `${k}=${v}`).join("; ") },
+      headers: {
+        "Content-Type": "image/png",
+        Cookie: [...c.cookies].map(([k, v]) => `${k}=${v}`).join("; "),
+        ...headers,
+      },
       body: png,
     });
     return { status: res.status, data: await res.json() };
   };
+  const newListing = (c, images) =>
+    c.post("/api/account/listings", { ...listingInput, title: "Fotoğraflı ikinci ilan başlığı", promo: "", images });
 
   const mine = await upload(both, "/api/media?for=listing");
   assert.equal(mine.status, 201, JSON.stringify(mine.data));
   assert.match(mine.data.key, /^u/, "organizatör fotoğrafı olarak kaydedilmeli");
-  const created = await both.post("/api/account/listings", {
-    ...listingInput,
-    title: "Fotoğraflı ikinci ilan başlığı",
-    promo: "",
-    images: [mine.data.url],
-  });
+  const created = await newListing(both, [mine.data.url]);
   assert.equal(created.status, 201, JSON.stringify(created.data));
+  assert.deepEqual(created.data.listing.images, [mine.data.url]);
 
+  // Tarayıcıda eski sayfa kodu kalmışsa: /hesap sayfasından gelen yükleme yine organizatörün
+  const fromAccount = await upload(both, "/api/media", { Referer: `${server.base}/hesap/` });
+  assert.match(fromAccount.data.key, /^u/);
+
+  // Daha önce yönetici adına kaydedilmiş fotoğraf, aynı kişi yöneticiyse ilana aktarılır
   const site = await upload(both, "/api/media");
   assert.match(site.data.key, /^s/, "yönetim panelinden yüklenen site görseli olarak kalmalı");
-  const rejected = await both.post("/api/account/listings", { ...listingInput, promo: "", images: [site.data.url] });
+  const adopted = await newListing(both, [site.data.url, mine.data.url]);
+  assert.equal(adopted.status, 201, JSON.stringify(adopted.data));
+  const [moved] = adopted.data.listing.images;
+  assert.equal(moved, `/media/u${site.data.key.slice(1)}`);
+  assert.equal((await fetch(server.base + moved)).status, 200);
+  assert.equal((await fetch(server.base + site.data.url)).status, 404, "eski site görseli kaldırılır");
+
+  // Yönetici olmayan üye site görselini kendi ilanında kullanamaz
+  const other = await upload(admin, "/api/media");
+  const rejected = await newListing(organizer, [other.data.url]);
   assert.equal(rejected.status, 400);
   assert.match(rejected.data.error, /yeniden yükleyin/);
   assert.equal((await upload(new Client(server.base), "/api/media?for=listing")).status, 401);
