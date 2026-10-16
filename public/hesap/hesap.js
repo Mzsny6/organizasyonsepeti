@@ -1191,7 +1191,7 @@ async function renderEditor(view, id) {
     for (const [n, file] of files.entries()) {
       photoStatus.textContent = `Yükleniyor ${n + 1} / ${files.length}…`;
       try {
-        images.push(await uploadImage(file));
+        images.push(await uploadImage(file, { forListing: true }));
         renderPhotos();
       } catch (err) {
         toast(err.message, "error");

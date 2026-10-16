@@ -482,3 +482,39 @@ test("ziyaret istatistikleri: çerezsiz sayım, kaynaklar ve olaylar", async () 
   assert.equal((await new Client(server.base).get("/api/admin/analytics")).status, 401, "yalnızca yönetici görür");
   assert.equal((await admin.get("/api/admin/summary")).data.today.views, 3);
 });
+
+test("ilan fotoğrafı: yönetim paneli oturumu açıkken de organizatöre ait yüklenir", async () => {
+  const png = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+    "base64",
+  );
+  // Aynı tarayıcıda hem yönetim paneline hem organizatör hesabına girilmiş
+  const both = new Client(server.base);
+  both.cookies = new Map([...organizer.cookies, ...admin.cookies]);
+  const upload = async (c, path) => {
+    const res = await fetch(server.base + path, {
+      method: "POST",
+      headers: { "Content-Type": "image/png", Cookie: [...c.cookies].map(([k, v]) => `${k}=${v}`).join("; ") },
+      body: png,
+    });
+    return { status: res.status, data: await res.json() };
+  };
+
+  const mine = await upload(both, "/api/media?for=listing");
+  assert.equal(mine.status, 201, JSON.stringify(mine.data));
+  assert.match(mine.data.key, /^u/, "organizatör fotoğrafı olarak kaydedilmeli");
+  const created = await both.post("/api/account/listings", {
+    ...listingInput,
+    title: "Fotoğraflı ikinci ilan başlığı",
+    promo: "",
+    images: [mine.data.url],
+  });
+  assert.equal(created.status, 201, JSON.stringify(created.data));
+
+  const site = await upload(both, "/api/media");
+  assert.match(site.data.key, /^s/, "yönetim panelinden yüklenen site görseli olarak kalmalı");
+  const rejected = await both.post("/api/account/listings", { ...listingInput, promo: "", images: [site.data.url] });
+  assert.equal(rejected.status, 400);
+  assert.match(rejected.data.error, /yeniden yükleyin/);
+  assert.equal((await upload(new Client(server.base), "/api/media?for=listing")).status, 401);
+});

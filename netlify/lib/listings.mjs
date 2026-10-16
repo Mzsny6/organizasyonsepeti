@@ -93,9 +93,10 @@ export function validateListingInput(input, content) {
 // Görsellerin gerçekten bu üye tarafından yüklendiğini doğrular.
 async function assertOwnImages(images, ownerId) {
   const keys = images.map((url) => MEDIA_URL.exec(url)?.[1]);
-  if (keys.some((k) => !k)) throw new HttpError(400, "Geçersiz görsel.");
+  const notYours = "Fotoğraflardan biri hesabınıza ait görünmüyor. Lütfen o fotoğrafı kaldırıp yeniden yükleyin.";
+  if (keys.some((k) => !k)) throw new HttpError(400, notYours);
   const metas = await Promise.all(keys.map((key) => mediaStore().getMetadata(key)));
-  if (metas.some((m) => m?.metadata?.owner !== ownerId)) throw new HttpError(400, "Geçersiz görsel.");
+  if (metas.some((m) => m?.metadata?.owner !== ownerId)) throw new HttpError(400, notYours);
 }
 
 const mediaKeysOf = (images) => images.map((url) => MEDIA_URL.exec(url)?.[1]).filter(Boolean);

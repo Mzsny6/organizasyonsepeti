@@ -59,7 +59,10 @@ export default async (req, context) => {
   try {
     const key = context.params?.key;
     if (!key && req.method === "POST") {
-      if (await isAdmin(req)) return await upload(req, "admin");
+      // Organizatör hesabı "?for=listing" ile yükler; aynı tarayıcıda yönetim paneli de açıksa
+      // fotoğraf yine organizatöre ait olmalı, yoksa ilan kaydında reddedilir.
+      const forListing = new URL(req.url).searchParams.get("for") === "listing";
+      if (!forListing && (await isAdmin(req))) return await upload(req, "admin");
       const user = await getSessionUser(req);
       if (!user) return fail(401, "Oturumunuz sona erdi, lütfen tekrar giriş yapın.");
       if (await isLimited("upload", user.id, 150, DAY))

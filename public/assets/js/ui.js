@@ -95,10 +95,11 @@ export async function prepareImage(file) {
   return blob && (blob.size < file.size || scale < 1) ? blob : file;
 }
 
-export async function uploadImage(file) {
+// forListing: organizatörün ilan fotoğrafı (yönetim paneli oturumu açık olsa bile üyeye ait kaydedilir).
+export async function uploadImage(file, { forListing = false } = {}) {
   const prepared = await prepareImage(file);
   if (prepared.size > 5 * 1024 * 1024) throw new Error(`${file.name}: fotoğraf 5 MB'tan büyük.`);
-  const result = await api("/api/media", {
+  const result = await api(forListing ? "/api/media?for=listing" : "/api/media", {
     method: "POST",
     body: prepared,
     headers: { "Content-Type": prepared.type || file.type, "X-File-Name": encodeURIComponent(file.name) },

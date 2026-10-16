@@ -3,7 +3,7 @@
 // - CSS/JS/simgeler: önbellekten hemen, arka planda yenilenir.
 // - Fotoğraflar: önbellekte varsa oradan (en fazla 120 adet).
 // - API, yönetim paneli, hesap ve favoriler önbelleğe alınmaz (kişisel veri).
-const VERSION = "1";
+const VERSION = "2";
 const STATIC = `os-static-${VERSION}`;
 const PAGES = `os-pages-${VERSION}`;
 const IMAGES = `os-images-${VERSION}`;
