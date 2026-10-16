@@ -316,7 +316,7 @@ textarea {
 }
 /* Logodaki yazı renkleri */
 .logo-text {
-  color: #1e5a63;
+  color: var(--ink);
 }
 .logo-text em {
   font-style: normal;
