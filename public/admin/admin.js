@@ -2426,10 +2426,7 @@ function renderAccount() {
 const app = document.getElementById("app");
 
 function logoMark() {
-  return h("span", {
-    class: "brand-mark",
-    html: '<svg viewBox="0 0 40 40" aria-hidden="true"><path d="M14 16.5 18 25M24 15.5 21 25M30.5 20 25 25" stroke="currentColor" stroke-width="1" fill="none"/><circle cx="14" cy="11" r="6" fill="#a29bfe"/><circle cx="24" cy="8.5" r="7" fill="#6c5ce7"/><circle cx="30.5" cy="16" r="4.6" fill="#ff7675"/><path d="M7.5 24.5h25l-3 10.6a2 2 0 0 1-1.9 1.4H12.4a2 2 0 0 1-1.9-1.4L7.5 24.5Z" fill="currentColor"/></svg>',
-  });
+  return h("span", { class: "brand-mark", html: '<img src="/assets/img/logo-mark.webp" alt="">' });
 }
 
 function showLogin(message) {

@@ -252,7 +252,6 @@ img {
   text-align: center;
 }
 .login-card .brand-mark {
-  width: 60px;
   height: 60px;
   margin: 0 auto 14px;
 }
@@ -294,13 +293,11 @@ img {
 
 .brand-mark {
   display: inline-flex;
-  width: 36px;
   height: 36px;
-  color: var(--ink);
   flex: none;
 }
-.brand-mark svg {
-  width: 100%;
+.brand-mark img {
+  width: auto;
   height: 100%;
 }
 
@@ -469,7 +466,6 @@ img {
     gap: 8px;
   }
   .topbar .brand-mark {
-    width: 30px;
     height: 30px;
   }
   .main {

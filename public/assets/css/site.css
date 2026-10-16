@@ -310,14 +310,17 @@ textarea {
   white-space: nowrap;
 }
 .logo-mark {
-  width: 38px;
-  height: 38px;
-  color: var(--ink);
+  width: auto;
+  height: 44px;
   flex: none;
 }
-.logo-weave {
-  stroke: var(--bg);
-  opacity: 0.55;
+/* Logodaki yazı renkleri */
+.logo-text {
+  color: #1e5a63;
+}
+.logo-text em {
+  font-style: normal;
+  color: #c4564d;
 }
 .main-nav {
   display: flex;
@@ -2209,12 +2212,18 @@ textarea {
   background: var(--ink);
   color: rgb(255 255 255 / 0.72);
 }
-.site-footer .logo,
-.site-footer .logo-mark {
+.site-footer .logo-text {
   color: #fff;
 }
-.site-footer .logo-weave {
-  stroke: var(--ink);
+.site-footer .logo-text em {
+  color: var(--action);
+}
+/* Logo açık zemine göre hazırlandı; koyu altbilgide beyaz rozet içinde */
+.site-footer .logo-mark {
+  box-sizing: content-box;
+  padding: 4px 7px;
+  border-radius: 14px;
+  background: #fff;
 }
 .footer-grid {
   display: grid;

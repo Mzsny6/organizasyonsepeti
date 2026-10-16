@@ -4,7 +4,7 @@ import { dopingActive, formatPrice, listingPath } from "../listings.mjs";
 import { searchPath } from "./urls.mjs";
 
 // CSS/JS değiştiğinde tarayıcı önbelleğini kırmak için artırın.
-export const ASSET_VERSION = "7";
+export const ASSET_VERSION = "8";
 
 const ESCAPES = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
 export const esc = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => ESCAPES[c]);
@@ -76,12 +76,18 @@ export function whatsappHref(settings, text) {
   return `https://wa.me/${settings.whatsapp}${message ? `?text=${encodeURIComponent(message)}` : ""}`;
 }
 
-export const logoMark = () => `<svg class="logo-mark" viewBox="0 0 40 40" aria-hidden="true">
-  <path d="M14 16.5 18 25M24 15.5 21 25M30.5 20 25 25" stroke="currentColor" stroke-width="1" fill="none"/>
-  <circle cx="14" cy="11" r="6" style="fill:var(--b1)"/><circle cx="24" cy="8.5" r="7" style="fill:var(--accent)"/><circle cx="30.5" cy="16" r="4.6" style="fill:var(--action)"/>
-  <path d="M7.5 24.5h25l-3 10.6a2 2 0 0 1-1.9 1.4H12.4a2 2 0 0 1-1.9-1.4L7.5 24.5Z" fill="currentColor"/>
-  <path class="logo-weave" d="M10 28.5h20M11.2 32.5h17.6M15 25v11M20 25v11M25 25v11" stroke-width=".9" fill="none"/>
-</svg>`;
+// Logodaki sepet ve balonlar (logo görselinden arka planı ayıklanarak kesildi)
+export const logoMark = () =>
+  `<img class="logo-mark" src="/assets/img/logo-mark.webp" width="68" height="44" alt="" decoding="async">`;
+
+// Site adının son kelimesi logodaki gibi mercan rengi: "Organizasyon <em>Sepeti</em>"
+export function logoText(name) {
+  const words = String(name || "")
+    .trim()
+    .split(/\s+/);
+  const last = words.length > 1 ? words.pop() : "";
+  return `<span class="logo-text">${esc(words.join(" "))}${last ? ` <em>${esc(last)}</em>` : ""}</span>`;
+}
 
 export function sectionHead(section, { align = "center", link } = {}) {
   return `<header class="section-head${align === "left" ? " is-left" : ""}">
@@ -173,7 +179,7 @@ function siteHeader(c, { home }) {
   return `<a class="skip-link" href="#icerik">İçeriğe geç</a>
 <header class="site-header${home ? "" : " is-solid"}">
   <div class="container header-inner">
-    <a class="logo" href="/" aria-label="${esc(s.siteName)} ana sayfa">${logoMark()}<span>${esc(s.siteName)}</span></a>
+    <a class="logo" href="/" aria-label="${esc(s.siteName)} ana sayfa">${logoMark()}${logoText(s.siteName)}</a>
     <nav class="main-nav" id="menu" aria-label="Ana menü">
       <a href="/ilanlar">İlanlar</a>
       <a href="/#hizmetler">Hizmetler</a>
@@ -194,7 +200,7 @@ function siteFooter(c) {
   return `<footer class="site-footer">
     <div class="container footer-grid">
       <div class="footer-brand">
-        <a class="logo" href="/">${logoMark()}<span>${esc(s.siteName)}</span></a>
+        <a class="logo" href="/">${logoMark()}${logoText(s.siteName)}</a>
         ${s.tagline ? `<p>${esc(s.tagline)}</p>` : ""}
         ${social.length ? `<div class="social">${social.map((x) => `<a href="${esc(x.url)}" target="_blank" rel="noopener" aria-label="${x.label}">${icon(x.name)}</a>`).join("")}</div>` : ""}
       </div>
@@ -253,7 +259,7 @@ ${noindex ? '<meta name="robots" content="noindex">' : `<link rel="canonical" hr
 <meta property="og:image" content="${esc(image)}">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="theme-color" content="#6c5ce7">
-<link rel="icon" href="/assets/img/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/assets/img/favicon.png" type="image/png">
 <link rel="apple-touch-icon" href="/assets/img/apple-touch-icon.png">
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="preconnect" href="https://fonts.googleapis.com">
